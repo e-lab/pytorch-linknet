@@ -10,10 +10,10 @@ import os
                 (new line charcater) from the end.
 """
 def readLines(filename):
-    assert(!os.path.exists(filename), "File:" + filename + "doesnot exists")
+    assert(os.path.exists(filename)), "File:" + filename + "doesnot exists"
     if os.path.exists(filename):
         lines = open(filename).read().splitlines()
-
+    return lines	
 
 
 """
@@ -23,6 +23,6 @@ def readLines(filename):
     already exists.
 """
 def mkdir(path):
-    assert(os.path.exists(path), "dir already exists")
+    assert(os.path.exists(path)), "dir already exists"
     if not os.path.exists(path):
         os.makedir(path)

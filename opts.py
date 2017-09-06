@@ -25,9 +25,9 @@ def getOptions():
 
     #Dataset Related
     _('--channels', type=int, default=3, metavar='', help="channels")
-    _('--datapath', type=str, default="/media/",metavar='', help="dataset location")
+    _('--datapath', type=str, default="/media/HDD1/Datasets/",metavar='', help="dataset location")
     _('--dataset', type=str, default="cs", choices=["cv", "cvs", "cs", "su", "rp"],metavar='', help="dataset type:cv(CamVid)/cvs(CamVidSeg)/cs(cityscaped)/su(SUN)/rp(representation)")
-    _('--cachepath', type=str, default="/media/", metavar='', help="cache directory to ave the loaded dataset")
+    _('--cachepath', type=str, default="/media/HDD1/cachedData/", metavar='', help="cache directory to save the loaded dataset")
     _('--imHeight', type=int, default=512, metavar='', help="image height (576 cv/512 cs)")
     _('--imWidth', type=int, default=1024, metavar='', help="image width (768 cv/1024 cs)")
 
@@ -41,7 +41,7 @@ def getOptions():
     _('--printNorm', action="store_true", help="For visualizing norm factor while training")
 
     args = parser.parse_args()
-    print(parser.print_help())
+#    print(parser.print_help())
     return args
 
 #getOptions()

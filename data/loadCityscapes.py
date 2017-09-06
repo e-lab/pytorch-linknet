@@ -1,8 +1,13 @@
-########################
+#######################
 #Cityscape Data Loader
 
 #28th August
 ########################
+
+#####################
+#Note : If a component is an absolute path, all previous components are thrown away and joining continues from the absolute path component.
+
+#####################
 import torch
 import os
 import sys
@@ -12,6 +17,8 @@ sys.path.insert(0, '..')
 import dataLoaderUtils as utils
 import opts
 from PIL import Image
+from torchvision import transforms
+from progress.bar import Bar	#for tracking progress
 
 class DataModel:
 
@@ -24,6 +31,7 @@ class DataModel:
 class CityScapeDataLoader:
 
     def __init__(self):
+	#self.dataset_name = "cityscapes"
         self.train_size = 2975      #cityscape train images
         self.val_size = 500         #cityscape validation images
         self.labels_filename = "cityscapeLabels.txt"    #cityscape labels file
@@ -31,16 +39,20 @@ class CityScapeDataLoader:
         self.classes = utils.readLines(self.labels_filename)
         self.histClasses = torch.FloatTensor(len(self.classes)).zero_()
         self.loaded_from_cache = False
-        define_conClasses(self)
-        define_classMap(self)
+        self.dataset_name="cityscapes"
+	
+		#defining conClasses and classMap
+        self.define_classMap()
+	self.define_conClasses()
+		#defining paths
+	self.define_data_loader_paths()
 
     def define_data_loader_paths(self):
-
         dir_name = str(self.args.imHeight) + "_" + str(self.args.imWidth)
-        dir_path = os.path.join(self.args.cachepath, dir_name)
+        dir_path = os.path.join(self.args.cachepath, self.dataset_name, dir_name)
         self.cacheFilePath = os.path.join(dir_path, "data.pyt")
 
-   def define_conClasses(self):
+    def define_conClasses(self):
         self.conClasses = self.classes
         self.conClasses.remove("Unlabeled")
 
@@ -84,13 +96,14 @@ class CityScapeDataLoader:
         self.classMap[33] = 20      #Bicycle
 
     def valid_file_extension(self, filename, extensions):
-        ext = os.path.splitext(filename)
+        ext = os.path.splitext(filename)[-1]
         return ext in extensions
 
     def data_loader(self):
         print('\n\27[31m\27[4mLoading cityscape dataset\27[0m')
         print('# of classes: ', len(self.classes))
 
+	print("cacheFilePath: " ,self.cacheFilePath)
         if self.args.cachepath!=None and os.path.exists(self.cacheFilePath):
             print('\27[32mData cache found at: \27[0m\27[4m', cityscape_cache_path, '\27[0m')
             data_cache = torch.load(self.cacheFilePath)
@@ -103,42 +116,68 @@ class CityScapeDataLoader:
         else:
             self.train_data = DataModel(self.train_size, self.args)
             self.val_data = DataModel(self.val_size, self.args)
+		
+            data_path_root_train = os.path.join(self.args.datapath,self.dataset_name, 'leftImg8bit/train/')
+            self.load_data(data_path_root_train, self.train_data)
 
-            data_path_root_train = os.path.join(self.args.datapath, '/leftImg8bit/train/')
-            load_data(self, data_path_root_train, self.train_data)
-
-            data_path_root_val = os.path.join(self.args.datapath, '/leftImg8bit/val/')
-            load_data(self, data_path_root_val, self.val_data)
+            data_path_root_val = os.path.join(self.args.datapath,self.dataset_name, 'leftImg8bit/val/')
+            self.load_data(data_path_root_val, self.val_data)
 
             if self.args.cachepath!=None and not self.loaded_from_cache:
-                print('\27[32m'+'==> Saving data to cache: \27[0m' + self.cache_path)
+                print('==> Saving data to cache:' + self.cacheFilePath)
                 data_cache = {}
                 data_cache["trainData"] = self.train_data
                 data_cache["testData"] = self.val_data
-                dat_cache["histClasses"] = self.histclasses
+                data_cache["histClasses"] = self.histClasses
 
-                torch.save(self.cache_path, data_cache)
+                torch.save(self.cacheFilePath, data_cache)
                 data_cache = None
                 gc.collect()
 
 
     def load_data(self, data_path_root, data_model):
         extensions= {".jpeg", ".jpg", ".png", ".ppm", ".pgm"}
-        assert(os.path.exists(data_path_root), 'No training folder found at : ' + data_path_root)
-        
+        assert(os.path.exists(data_path_root)), 'No training folder found at : ' + data_path_root
         count = 1
         dir_names = next(os.walk(data_path_root))[1]
-        
+	
+	image_loader = transforms.Compose([transforms.Scale((self.args.imWidth, self.args.imHeight)), transforms.ToTensor()])
+
+	#Initializinf the Progress Bar
+	bar = Bar("Processing", max=data_model.size)
+
         for dir in dir_names:
             dir_path = os.path.join(data_path_root, dir)
             file_names = next(os.walk(dir_path))[2]
             for file in file_names:
-                if valid_file_extension(file,extensions) and count<=data_model.size:
-                    file_path = os.path.join(dir_path, file)
-                    data_temp = Image.open(file_path)
-                    #transform the image
-            
-        
+            	#process each image
+		if self.valid_file_extension(file,extensions) and count<=data_model.size:
+			file_path = os.path.join(dir_path, file)
+			#Load training images
+                	image = Image.open(file_path)
+			data_model.data[count] = image_loader(image).float()
+			#Get corresponding label filename
+			label_filename = file.replace("leftImg8bit","gtFine")
+			label_filename = label_filename.replace(".png","_labelIds.png")
+
+			#Load training labels
+			#Load labels with same filename as input image
+			label = Image.open(label_filename)
+			label_file = image_loader(label).float()
+
+			#TODO : aaply function
+			self.histClasses = self.histClasses + torch.histc(label_file, bins=len(self.classes), min=1, max=len(self.classes))
+
+			data_model.data[count] = label_file[0]
+			count = count + 1
+			bar.next()
+			gc.collect()
+			break
+	    break			
+ 	bar.finish()
 
 
-
+def __main__():	
+	loader = CityScapeDataLoader()
+	loader.data_loader()
+__main__()
