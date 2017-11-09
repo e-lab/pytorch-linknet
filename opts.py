@@ -1,47 +1,47 @@
-#Arguments
-from argparse import ArgumentParser
+import argparse
 
 
-def getOptions():
-    parser = ArgumentParser(description='e-Lab Linknet Script')
-    _=parser.add_argument
+def parse():
+    # training related
+    parser = argparse.ArgumentParser()
+    arg = parser.add_argument
+    arg('-r', '--learningRate', type=float, default=5e-4, help='learning rate, default is 5e-4')
+    arg('-d', '--learningRateDecay', type=float, default=1e-7, help='learning rate decay (in # samples), '
+                                                                                    'default is 1e-7')
+    arg('-w', '--weightDecay', type=float, default=2e-4, help='L2 penalty on the weights, default is 2e-4')
+    arg('-m', '--momentum', type=float, default=.9, help='momentum, default: .9')
+    arg('-b', '--batchSize', type=float, default=8, help='batch size')
 
-    #Training Related Arguments
-    _('-r','--learningRate',type=float,default=5e-4,metavar='',help="learning rate")
-    _('-d','--learningRateDecay', type=float, default=1e-7, metavar='',help="learning rate decay (in # samples)")
-    _('-w','--weightDecay', type=float, default=2e-4, metavar='',help="L2 penalty on the weights")
-    _('-m','--momentum', type=float, default=0.9,  metavar='',help="momentum")
-    _('-b','--batchSize', type=int, default=8, metavar='',help="batch size")
-    _('--maxepoch', type=int, default=300, metavar='',help="maximum number of training epochs")
-    _('--plot', action="store_true",help="plot training/testing error")
-    _('--showPlot', action="store_true",help="display the plots")
-    _('--lrDecayEvery', type=int, default=100,metavar='',help="Decay learning rate every X epoch by 1e-1")
+    # device related
+    arg('--maxepoch', type=int, default=300, help='maximum number of training epochs')
+    arg('--plot', type=bool, default=False, help='plot training/testing error')
+    arg('--lrDecayEvery', type=int, default=100, help='Decay learning rate every X epoch by 1e-1')
+    arg('-t', '--threads', type=int, default=8, help='number of threads')
+    arg('-i', '--devid', type=int, default=1, help='device ID (if using CUDA)')
+    arg('--nGPU', type=int, default=4, help='number of GPUs you want to train on')
+    arg('--save', type=str, default='media', help='save trained model here')
 
-    #Device Related Arguments
-    _('-t','--threads', type=int, default=8, metavar='',help="number of threads")
-    _('-i','--devid',type=int, default=1, metavar='', help="device ID (if using CUDA)")
-    _('--nGPU', type=int, default=4, metavar='', help="number of GPU's you want to train on")
-    _('--save', type=str, default="/media/",metavar='', help="save trained model here")
+    # data set related:
+    arg('--channels', type=int, default=3, help='image channels')
+    arg('--datapath',  type=str, default='media/', help='dataset location')
+    arg('--cachepath', type=str, default='media/', help='cache directory to save the loaded dataset')
+    arg('--dataset',  type=str, default='cs', choices=["cv", "cvs", "cs", "su", "rp"],
+        help='dataset type: cv(CamVid)/cvs(CamVidSeg)/cs(cityscapes)/su(SUN)/rp(representation)')
+    arg('--imHeight', type=int, default=512, help='image height  (576 cv/512 cs)')
+    arg('--imWidth', type=int, default=1024, help='image width  (576 cv/512 cs)')
 
-    #Dataset Related
-    _('--channels', type=int, default=3, metavar='', help="channels")
-    _('--datapath', type=str, default="/media/HDD1/Datasets/",metavar='', help="dataset location")
-    _('--dataset', type=str, default="cs", choices=["cv", "cvs", "cs", "su", "rp"],metavar='', help="dataset type:cv(CamVid)/cvs(CamVidSeg)/cs(cityscaped)/su(SUN)/rp(representation)")
-    _('--cachepath', type=str, default="/media/HDD1/cachedData/", metavar='', help="cache directory to save the loaded dataset")
-    _('--imHeight', type=int, default=512, metavar='', help="image height (576 cv/512 cs)")
-    _('--imWidth', type=int, default=1024, metavar='', help="image width (768 cv/1024 cs)")
+    # model related
 
-    #Model Related
-    _('--model', type=str, default="model/model.py", metavar='', help="Path of model definition")
-    _('--pretrained', type=str, default="/media/HDD1/Models/pretrained/resnet-18.py", metavar='', help="pretrained encoder for which you want to train your decoder")
+    arg('--model',  type=str, default='models/model.py', help='(default models/model.py')
+    arg('--pretrained',  type=str, default='media/HDD1/Models/pretrained/resnet-18.t7',
+        help='pretrained encoder for which you want to train your decoder')
 
-    #Saving/Displaying Information
-    _('--saveTrainConf', action="store_true",help="Save training confusion matrix")
-    _('--saveAll', action="store_true", help="Save all models and confusion matrices")
-    _('--printNorm', action="store_true", help="For visualizing norm factor while training")
+    # Saving/Displaying Information
+    arg('--saveTrainConf', type=bool, default=False, help='Save training confusion matrix')
+    arg('--saveAll', type=bool, default=False, help='Save all models and confusion matrices')
+    arg('--printNorm', type=bool, default=False, help='For visualize norm factor while training"')
 
-    args = parser.parse_args()
-#    print(parser.print_help())
-    return args
+    return parser
 
-#getOptions()
+
+
