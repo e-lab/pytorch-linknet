@@ -15,7 +15,7 @@ import gc
 
 sys.path.insert(0, '..')
 
-import dataLoaderUtils as utils
+from dataLoaderUtils import dataLoaderUtils as utils
 from PIL import Image
 from torchvision import transforms
 from progress.bar import Bar  # for tracking progress
@@ -43,6 +43,7 @@ class CityScapeDataLoader:
         self.val_data = None
         self.train_data = None
         self.data_loader()
+        self.cacheFilePath = None
 
         # defining conClasses and classMap
         self.define_classMap()
@@ -106,9 +107,9 @@ class CityScapeDataLoader:
         print('\n\27[31m\27[4mLoading cityscape dataset\27[0m')
         print('# of classes: ', len(self.classes))
 
-        print("cacheFilePath: ", self.cacheFilePath)
+        #print("cacheFilePath: ", self.cacheFilePath)
         if self.args['cachepath'] != None and os.path.exists(self.cacheFilePath):
-            print('\27[32mData cache found at: \27[0m\27[4m', cityscape_cache_path, '\27[0m')
+            #print('\27[32mData cache found at: \27[0m\27[4m', self.cacheFilePath, '\27[0m')
             data_cache = torch.load(self.cacheFilePath)
             self.train_data = data_cache.train_data
             self.val_data = data_cache.val_data
@@ -182,7 +183,8 @@ class CityScapeDataLoader:
 
 
 def __main__():
-    loader = CityScapeDataLoader()
+    a = 0
+    loader = CityScapeDataLoader(a)
     loader.data_loader()
 
 

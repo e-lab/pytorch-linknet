@@ -12,7 +12,7 @@ class Train(object):
         self.t = model
         self.loss = model.loss
         self.model = model.model
-        print '==> Flattening model parameters'
+        print ('==> Flattening model parameters')
         self.w, self.dE_dw = model.getParameters()
 
         self.confusion = None
