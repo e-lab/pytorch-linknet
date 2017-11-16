@@ -15,10 +15,10 @@ if __name__ == '__main__':
     cuda.set_device(opt['devid'])
     print('\n\27[32mModels will be saved in \27[0m\27[4m' + str(opt['save']) + '\27[0m')
     if not os.path.exists(str(opt['save'])):
-        os.makedirs(str(opt['save']))
+        os.mkdir(str(opt['save']))
     if opt['saveAll']:
         if not os.path.exists(str(opt['save'])+'/all'):
-            os.makedirs(str(opt['save'])+'/all')
+            os.mkdir(str(opt['save'])+'/all')
 
 #################################################################
 data = None
