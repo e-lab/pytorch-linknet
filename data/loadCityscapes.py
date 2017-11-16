@@ -15,10 +15,10 @@ import gc
 
 sys.path.insert(0, '..')
 
-from dataLoaderUtils import dataLoaderUtils as utils
+from data.dataLoaderUtils import dataLoaderUtils as utils
 from PIL import Image
 from torchvision import transforms
-from progress.bar import Bar  # for tracking progress
+#from progress.bar import Bar  # for tracking progress
 
 
 class DataModel:
@@ -148,7 +148,7 @@ class CityScapeDataLoader:
             [transforms.Scale((self.args['imWidth'], self.args['imHeight'])), transforms.ToTensor()])
 
         # Initializinf the Progress Bar
-        bar = Bar("Processing", max=data_model.size)
+        #bar = Bar("Processing", max=data_model.size)
 
         for dir in dir_names:
             dir_path = os.path.join(data_path_root, dir)
@@ -175,11 +175,11 @@ class CityScapeDataLoader:
 
                     data_model.data[count] = label_file[0]
                     count = count + 1
-                    bar.next()
+                    #bar.next()
                     gc.collect()
                     break
             break
-        bar.finish()
+        #bar.finish()
 
 
 def __main__():
