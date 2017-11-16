@@ -1,12 +1,7 @@
 from torch import FloatTensor as tensor
-# import pycuda as cuda # note: cuda doesnt work on my mac
-import pycuda as cuda
-import pycudnn as cudnn
+from torch import cuda
 from torch import nn
 from collections import OrderedDict as od
-from torch.legacy import nn as nn_old
-
-
 import torch
 import math
 import os
@@ -34,7 +29,7 @@ class Model(object):
 
         # Function and variable definition
         self.iChannels = 64
-        self.Convolution = cudnn.SpatialConvolution
+        self.Convolution = nn.ConvTranspose2d
         self.Avg = nn.AvgPool2d
         self.ReLU = nn.ReLU
         self.Max = nn.MaxPool2d
@@ -52,7 +47,7 @@ class Model(object):
                          ("spatial layer 1", nn.ConvTranspose2d(64, 32, (3, 3), padding=(1, 1), output_padding=(1, 1),
                                                                 stride=(2, 2))),
                          ("batch norm layer 1", self.SBatchNorm(32)), ("ReLu layer 1", self.ReLU(True)),
-                         ("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1)),
+                         ("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1).type(cuda.FloatTensor)),
                          ("batch norm layer 2", self.SBatchNorm(32, eps=1e-3)), ("rectified layer 2", self.ReLU(True)),
                          ("spacial layer 2", nn.ConvTranspose2d(32, len(self.classes), (2, 2), stride=(2, 2),
                                                                    padding=(0, 0), output_padding=(0, 0)))])
@@ -98,36 +93,38 @@ class Model(object):
 
             model = nn.Sequential(layers)
 
-            if cuda.driver.Device.count() > 1:
+            if torch.cuda.device_count() > 1:
                 gpu_list = []
-                for i in range(0, cuda.driver.Device.count()):
+                for i in range(0, torch.cuda.device_count()):
                     gpu_list.append(i)
-                model = nn.DataParallel(1, True, False).add(model.cuda(), gpu_list) # check this
+                model = nn.DataParallel(1, True, False).add(model.cuda(), gpu_list)  # check this
                 print('\27[32m' + str(self.opt['nGPU']) + " GPUs being used\27[0m")
 
             print('Defining loss function...')
             classWeights = torch.pow(torch.log(1.02 + self.histClasses / self.histClasses.max()), -1)
             -- classWeights[0] = 0
 
-            self.loss = cudnn.SpatialCrossEntropyCriterion(classWeights)
+            self.loss = torch.nn.CrossEntropyLoss(weight=classWeights)
 
             model.cuda()
             self.loss.cuda()
 
         self.model = model
 
+        self.model = model
+
     @staticmethod
     def ConvInit(vector):
         n = vector.kernel_size(0) * vector.kernel_size(1) * vector.out_channels
-        vector.weight = torch.nn.Parameter(torch.Tensor(vector.in_channels, vector.out_channels // vector.groups,
+        vector.weight = torch.nn.Parameter(tensor(vector.in_channels, vector.out_channels // vector.groups,
                                                        *vector.kernel_size).normal_(0, math.sqrt(2 / n)))
         # removed the weight:normal
 
     @staticmethod
     def BNInit(vector):
-        vector.weight = torch.nn.Parameter(torch.Tensor(vector.in_channels, vector.out_channels // vector.groups,
+        vector.weight = torch.nn.Parameter(tensor(vector.in_channels, vector.out_channels // vector.groups,
                                                        *vector.kernel_size).fill(1))
-        vector.bias = torch.nn.Parameter(torch.Tensor(vector.out_channels).zero_())
+        vector.bias = torch.nn.Parameter(tensor(vector.out_channels).zero_())
 
     def decode(self, iFeatures, oFeatures, stride, adjS):
         """
@@ -147,10 +144,10 @@ class Model(object):
         layers = od([("spatial layer 1", nn.ConvTranspose2d(64, 32, (3, 3), padding=(1, 1), output_padding=(1, 1),
                                                                 stride=(2, 2))),
                      ("batch norm layer 1", self.SBatchNorm(32)), ("ReLu layer 1", self.ReLU(True)),
-                     ("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1)),
+                     ("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1).type(cuda.FloatTensor)),
                      ("batch norm layer 2", self.SBatchNorm(32, eps=1e-3))])
 
-        residual_layers = od([("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1)),
+        residual_layers = od([("conv layer 1", self.Convolution(32, 32, 3, 3, 1, 1, 1, 1).type(cuda.FloatTensor)),
                               ("batch norm layer 1", self.SBatchNorm(32)),
                               ("upsamplingBilinear_2d", torch.nn.UpsamplingBilinear2d(stride))])
 

@@ -1,7 +1,6 @@
 import torch
 from torch import FloatTensor as Tensor
-from progress.bar import Bar
-import torchnet as tnt
+from torch import cuda
 import time as t
 import os
 from ConfusionMatrix import ConfusionMatrix
@@ -68,7 +67,7 @@ class Test(object):
             model.eval()
 
             # test over test data
-            bar = Bar("Processing", max=testData.size)
+            #bar = Bar("Processing", max=testData.size)
             for x in xrange(1, testData.size(), self.opt['batchSize']):
 
                 if (x + self.opt['batchSize'] - 1) > testData.size():
@@ -92,16 +91,16 @@ class Test(object):
                     k = k - 1
                 self.testConf.batchAdd(predictions, k)
                 totalerr = totalerr + err
-                bar.next()
-            bar.finish()
+                #bar.next()
+            #bar.finish()
 
             time = t.time()-time
             time = time / testData.size()
 
-            print '==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms'
+            print( '==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
             totalerr = totalerr / (testData.size() * len(self.opt['dataconClasses']) / self.opt['batchSize'])
             # print '\nTrain Error: %1.4f', trainError
-            print 'Test  Error: %1.4f', totalerr
+            print ('Test  Error: %1.4f', totalerr)
 
             filename = os.path.join(self.opt['save'], 'lastConfusionMatrix.txt')
             fp = self.saveConfMatrix(filename, self.testConf, trainConf)
@@ -110,7 +109,7 @@ class Test(object):
             iIoU = torch.sum(self.testConf.unionvalids) / len(self.opt['conClasses']) * 100
             GAcc = self.testConf.totalValid * 100
 
-            print '\nIoU: %2.2f%% | iIoU : %2.2f%% | AvgAccuracy: %2.2f%%', IoU, iIoU, GAcc
+            print ('\nIoU: %2.2f%% | iIoU : %2.2f%% | AvgAccuracy: %2.2f%%', IoU, iIoU, GAcc)
 
             self.metricFlag[1] = self.gatherBestMetric(totalerr, epoch, self.best_error, 1)
             self.metricFlag[2] = self.gatherBestMetric(IoU, epoch, self.best_IoU, 2)

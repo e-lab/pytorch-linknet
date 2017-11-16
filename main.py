@@ -3,8 +3,7 @@ import torch
 import train
 import test
 import os
-import pycuda as cuda
-import pycudnn as cudnn
+from torch import  cuda
 
 
 if __name__ == '__main__':
@@ -13,7 +12,7 @@ if __name__ == '__main__':
     torch.set_default_tensor_type('torch.FloatTensor')
 #################################################################
     # cuda stuff
-    cuda.setDevice(opt['devid'])
+    cuda.set_device(opt['devid'])
     print('\n\27[32mModels will be saved in \27[0m\27[4m' + str(opt['save']) + '\27[0m')
     if not os.path.exists(str(opt['save'])):
         os.makedirs(str(opt['save']))
@@ -28,15 +27,15 @@ if opt['dataset'] == 'cv':
     data = DataLoader.CamVidDataLoader
     opt['conClasses'] = data.conClasses, opt['Classes'] = data.classes, opt['histClasses'] = data.histClasses
     opt['trainData'] = data.trainData, opt['testData'] = data.testData
-    print "data is loadCamVid"
+    print ("data is loadCamVid")
 elif opt['dataset'] == 'cs':
     import data.loadCityscapes as DataLoader
     data = DataLoader.CityScapeDataLoader(opt)
     opt['conClasses'] = data.conClasses, opt['Classes'] = data.classes, opt['histClasses'] = data.histClasses
     opt['trainData'] = data.trainData, opt['testData'] = data.val_Data
-    print "data is loadCityscapes"
+    print ("data is loadCityscapes")
 else:
-    print "data loader could not be found"
+    print ("data loader could not be found")
 
 
 #################################################################

@@ -1,7 +1,6 @@
 import torch
 from torch import FloatTensor as Tensor
-import torchnet as tnt
-from progress.bar import Bar
+from ConfusionMatrix import ConfusionMatrix
 import time as Time
 from torch import optim
 
@@ -19,10 +18,10 @@ class Train(object):
         self.confusion = None
         if self.opt['conClasses']:
             print('\27[31mClass \'Unlabeled\' is ignored in confusion matrix\27[0m')
-            self.confusion = tnt.meter.ConfusionMeter(len(opt['conClasses']), opt['conClasses'])
+            self.testConf = ConfusionMatrix(len(opt['conClasses']), opt['conClasses'])
 
         else:
-            self.confusion = tnt.meter.ConfusionMeter(len(opt['Classes']), opt['Classes'])
+            self.testConf = ConfusionMatrix(len(opt['Classes']), opt['Classes'])
         self.learningRateSteps = {0.5e-4, 0.1e-4, 0.5e-5, 0.1e-6}
         self.optimState = {"learningRate": self.opt['learningRate'], "momentum": self.opt['momentum'], "learningRateDecay":
             self.opt['learningRateDecay']}
@@ -39,7 +38,7 @@ class Train(object):
 
         shuffle = torch.randperm(trainData.size())
         self.model.train()
-        bar = Bar("Processing", max=trainData.size)
+        #bar = Bar("Processing", max=trainData.size)
         for i in range(0, trainData.size(), self.opt['batchSize']):
 
             if (i + self.opt['batchSize'] - 1) > trainData.size():
@@ -73,9 +72,9 @@ class Train(object):
 
         time = Time.time() - time
         time = time / trainData.size()
-        print '==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms'
+        print ('==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
         totalerr = totalerr / (trainData.size() * len(self.opt['conClasses']) / self.opt['batchSize'])
-        print '\nTrain Error: %1.4f', totalerr
+        print ('\nTrain Error: %1.4f', totalerr)
         trainError = totalerr
         return self.confusion, self.model, self.loss
 
