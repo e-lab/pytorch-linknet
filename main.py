@@ -30,7 +30,7 @@ if opt['dataset'] == 'cv':
     print ("data is loadCamVid")
 elif opt['dataset'] == 'cs':
     import data.loadCityscapes as DataLoader
-    data = DataLoader.CityScapeDataLoader(opt)
+    data = DataLoader.CityScapeDataLoader.main(opt)
     opt['conClasses'] = data.conClasses, opt['Classes'] = data.classes, opt['histClasses'] = data.histClasses
     opt['trainData'] = data.trainData, opt['testData'] = data.val_Data
     print ("data is loadCityscapes")

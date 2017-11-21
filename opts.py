@@ -24,7 +24,7 @@ def parse():
     # data set related:
     arg('--channels', type=int, default=3, help='image channels')
     arg('--datapath',  type=str, default='media/', help='dataset location')
-    arg('--cachepath', type=str, default='media/', help='cache directory to save the loaded dataset')
+    arg('--cachepath', type=str, default=None, help='cache directory to save the loaded dataset')
     arg('--dataset',  type=str, default='cs', choices=["cv", "cvs", "cs", "su", "rp"],
         help='dataset type: cv(CamVid)/cvs(CamVidSeg)/cs(cityscapes)/su(SUN)/rp(representation)')
     arg('--imHeight', type=int, default=512, help='image height  (576 cv/512 cs)')

@@ -43,11 +43,9 @@ class CityScapeDataLoader:
         self.val_data = None
         self.train_data = None
         self.data_loader()
-        self.cacheFilePath = None
-
+        self.cacheFilePath = ""
         # defining conClasses and classMap
         self.define_classMap()
-        self.define_conClasses()
         # defining paths
         self.define_data_loader_paths()
 
@@ -121,10 +119,10 @@ class CityScapeDataLoader:
             self.train_data = DataModel(self.train_size, self.args)
             self.val_data = DataModel(self.val_size, self.args)
 
-            data_path_root_train = os.path.join(self.args.datapath, self.dataset_name, 'leftImg8bit/train/')
+            data_path_root_train = os.path.join(self.args['datapath'], self.dataset_name, 'leftImg8bit/train/')
             self.load_data(data_path_root_train, self.train_data)
 
-            data_path_root_val = os.path.join(self.args.datapath, self.dataset_name, 'leftImg8bit/val/')
+            data_path_root_val = os.path.join(self.args['datapath'], self.dataset_name, 'leftImg8bit/val/')
             self.load_data(data_path_root_val, self.val_data)
 
             if self.args['cachepath'] != None and not self.loaded_from_cache:
@@ -182,10 +180,10 @@ class CityScapeDataLoader:
         #bar.finish()
 
 
-def __main__():
-    a = 0
-    loader = CityScapeDataLoader(a)
-    loader.data_loader()
+    @staticmethod
+    def main(opts):
+        loader = CityScapeDataLoader(opts)
+        loader.data_loader()
 
-
-__main__()
+if __name__ == '__main__':
+    opts = dict()
