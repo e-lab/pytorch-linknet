@@ -42,13 +42,14 @@ class CityScapeDataLoader:
         self.dataset_name = "cityscapes"
         self.val_data = None
         self.train_data = None
-        self.data_loader()
-        self.cacheFilePath = ""
+        self.cacheFilePath = None
         # defining conClasses and classMap
         self.define_classMap()
         # defining paths
         self.define_data_loader_paths()
-
+        self.data_loader()    
+        print("\n\ncache file path: ", self.cacheFilePath)
+    
     def define_data_loader_paths(self):
         dir_name = str(self.args['imHeight']) + "_" + str(self.args['imWidth'])
         dir_path = os.path.join(self.args['cachepath'], self.dataset_name, dir_name)
@@ -132,7 +133,7 @@ class CityScapeDataLoader:
                 data_cache["testData"] = self.val_data
                 data_cache["histClasses"] = self.histClasses
 
-                torch.save(self.cacheFilePath, data_cache)
+                torch.save(data_cache,self.cacheFilePath )
                 # data_cache = None
                 gc.collect()
 
@@ -155,23 +156,25 @@ class CityScapeDataLoader:
                 # process each image
                 if self.valid_file_extension(file, extensions) and count <= data_model.size:
                     file_path = os.path.join(dir_path, file)
+                    print("attempting to load image" + file_path + "\n")
                     # Load training images
                     image = Image.open(file_path)
                     data_model.data[count] = image_loader(image).float()
                     # Get corresponding label filename
-                    label_filename = file.replace("leftImg8bit", "gtFine")
+                    label_filename = file_path.replace("leftImg8bit", "gtFine")
                     label_filename = label_filename.replace(".png", "_labelIds.png")
 
                     # Load training labels
                     # Load labels with same filename as input image
+                    print("attempting to load file labels " + label_filename + "\n")
                     label = Image.open(label_filename)
                     label_file = image_loader(label).float()
 
                     # TODO : aaply function
                     self.histClasses = self.histClasses + torch.histc(label_file, bins=len(self.classes), min=1,
                                                                       max=len(self.classes))
-
-                    data_model.data[count] = label_file[0]
+                    print("data model size:", data_model.data.shape)
+                    data_model.data[count][0] = label_file[0]
                     count = count + 1
                     #bar.next()
                     gc.collect()
@@ -182,7 +185,9 @@ class CityScapeDataLoader:
 
     @staticmethod
     def main(opts):
+        print("inside the main")
         loader = CityScapeDataLoader(opts)
+        print("leaving the main")
         loader.data_loader()
 
 if __name__ == '__main__':
