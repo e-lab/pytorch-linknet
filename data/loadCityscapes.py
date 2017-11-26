@@ -44,8 +44,11 @@ class CityScapeDataLoader:
         self.val_data = None
         self.train_data = None
         self.cacheFilePath = None
+        self.conClasses = None
         # defining conClasses and classMap
+        self.define_conClasses()
         self.define_classMap()
+        
         # defining paths
         self.define_data_loader_paths()
         self.data_loader()    
@@ -111,9 +114,9 @@ class CityScapeDataLoader:
         if self.args['cachepath'] != None and os.path.exists(self.cacheFilePath):
             #print('\27[32mData cache found at: \27[0m\27[4m', self.cacheFilePath, '\27[0m')
             data_cache = torch.load(self.cacheFilePath)
-            self.train_data = data_cache.train_data
-            self.val_data = data_cache.val_data
-            self.histClasses = data_cache.histClasses
+            self.train_data = data_cache['trainData']
+            self.val_data = data_cache['testData']
+            self.histClasses = data_cache['histClasses']
             self.loaded_from_cache = True
             dataCache = None
             gc.collect()
@@ -190,6 +193,7 @@ class CityScapeDataLoader:
         loader = CityScapeDataLoader(opts)
         print("leaving the main")
         loader.data_loader()
+        return loader
 
 if __name__ == '__main__':
     opts = dict()

@@ -102,7 +102,7 @@ class Model(object):
 
             print('Defining loss function...')
             classWeights = torch.pow(torch.log(1.02 + self.histClasses / self.histClasses.max()), -1)
-            -- classWeights[0] = 0
+            #classWeights[0] = 0
 
             self.loss = torch.nn.CrossEntropyLoss(weight=classWeights)
 
