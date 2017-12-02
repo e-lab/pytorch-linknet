@@ -5,7 +5,7 @@ from collections import OrderedDict as od
 import torch
 import math
 import os
-
+import torchvision.models as models
 
 class Model(object):
 
@@ -16,15 +16,17 @@ class Model(object):
         print ('Using pretrained ResNet-18')
 
         # loading model
-        self.oModel = torch.load(opt['pretrained'])
+        self.oModel = models.resnet18(True)
+        #self.oModel = torch.load(opt['pretrained'])
         self.classes = opt['Classes']
         self.histClasses = opt['histClasses']
 
 
         # Getting rid of classifier
-        self.oModel.remove(11)
-        self.oModel.remove(10)
-        self.oModel.remove(9)
+        self.oModels = nn.Sequential(*list(self.oModel.children())[:-3])
+        #self.oModel.remove(11)
+        #self.oModel.remove(10)
+        #self.oModel.remove(9)
         # Last layer is size 512x8x8
 
         # Function and variable definition
@@ -41,8 +43,8 @@ class Model(object):
         if os.path.isfile(self.opt['save'] + '/all/model-last.net'):
             model = torch.load(self.opt['save'] + '/all/model-last.net')
         else:
-            layers = od([("oModel layer 1", self.oModel.get(1)), ("oModel layer 2", self.oModel.get(2)),
-                         ("oModel layer 3", self.oModel.get(3)), ("oModel layer 4", self.oModel.get(4)),
+            layers = od([("oModel layer 1", list(self.oModel.children())[0]), ("oModel layer 2", list(self.oModel.children())[1]),
+                         ("oModel layer 3", list(self.oModel.children())[2]), ("oModel layer 4", list(self.oModel.children())[3]),
                          ("bypass2dec layer", self.bypass2dec(64, 1, 1, 0)),
                          ("spacial layer 1", nn.ConvTranspose2d(64, 32, (3, 3), padding=(1, 1), output_padding=(1, 1),
                                                                 stride=(2, 2)).type(cuda.FloatTensor)),
@@ -150,7 +152,7 @@ class Model(object):
                      ("batch norm layer 3", self.SBatchNorm(oFeatures, eps=1e-3)),
                      ("rectifier layer 3", nn.ReLU(True))])
 
-        for i in xrange(1, 2):
+        for i in range(1, 2):
             self.ConvInit(layers.items()[0][1])
             self.ConvInit(layers.items()[3][1])
             self.ConvInit(layers.items()[6][1])
@@ -165,7 +167,7 @@ class Model(object):
     def layer(self, layerN, features):
         self.iChannels = features
         s = nn.Sequential()
-        for i in xrange(1, 2):
+        for i in range(1, 2):
             s.add_module("Feature layer" + str(i), list(list(self.oModel.children())[4+layerN].children)[i])
         return s
 

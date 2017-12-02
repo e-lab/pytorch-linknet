@@ -62,10 +62,10 @@ old_path = os.getcwd()
 #model_raw = __import__('model.py'
 if filename == 'model.py':
     import  models.model as model
-else if filename == 'nobypass.py':
+elif filename == 'nobypass.py':
     import models.nobypass as model
 else:
-    import models.model-res-dec as model
+    import models.model_res_dec as model
 
 model_init = model.Model(opt)
 Train = train.Train(model_init, opt)
