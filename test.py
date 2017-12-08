@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 from torch import FloatTensor as Tensor
 from torch import cuda
 import time as t
@@ -27,8 +28,8 @@ class Test(object):
         self.metricFlag = [0, 0, 0, 0]
 
         # batch stuff
-        self.yt = Tensor(opt['batchSize'], opt['imHeight'], opt['imHeight'])
-        self.x = Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imHeight'])
+        self.yt = Variable(Tensor(opt['batchSize'], opt['imHeight'], opt['imWidth']))
+        self.x = Variable(Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imWidth']))
 
     def saveConfMatrix(self, filename, teConfMat, trConfMat):
         file = open(filename, 'w')
@@ -68,15 +69,15 @@ class Test(object):
 
             # test over test data
             #bar = Bar("Processing", max=testData.size)
-            for x in xrange(1, testData.size(), self.opt['batchSize']):
+            for x in range(1, testData.size, self.opt['batchSize']):
 
-                if (x + self.opt['batchSize'] - 1) > testData.size():
+                if (x + self.opt['batchSize'] - 1) > testData.size:
                     break
 
-                idx = 1
-                for i in range(0, t + self.opt['batchSize']-1):
-                    self.x[idx].copy(testData.data[i])
-                    self.yt[idx].copy(testData.labels[i])
+                idx = 0 
+                for i in range(0, 8):
+                    self.x[idx].data =(testData.data[i])
+                    self.yt[idx].data = (testData.labels[i])
                     idx = idx + 1
 
                 y = model.forward(self.x)
@@ -95,10 +96,10 @@ class Test(object):
             #bar.finish()
 
             time = t.time()-time
-            time = time / testData.size()
+            time = time / testData.size
 
             print( '==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
-            totalerr = totalerr / (testData.size() * len(self.opt['dataconClasses']) / self.opt['batchSize'])
+            totalerr = totalerr / (testData.size* len(self.opt['dataconClasses']) / self.opt['batchSize'])
             # print '\nTrain Error: %1.4f', trainError
             print ('Test  Error: %1.4f', totalerr)
 
@@ -119,7 +120,7 @@ class Test(object):
             # Update model and confusion matrix file if better value is found
             updateFile = 0
             dumFlag = 0
-            for i in xrange(0,4):
+            for i in range(0,4):
                 if self.metricFlag[i] == 1:
                     filename = os.path.join(self.opt['save'], 'model-', str(self.metricName[i]), '.net')
                     torch.save(filename, model.clearState().get(1))

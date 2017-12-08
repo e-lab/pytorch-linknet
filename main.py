@@ -35,6 +35,7 @@ elif opt['dataset'] == 'cs':
     opt['conClasses'] = data.conClasses
     opt['Classes'] = data.classes
     opt['histClasses'] = data.histClasses
+    print(type(data.train_data))
     opt['trainData'] = data.train_data
     opt['testData'] = data.val_data
     print ("data is loadCityscapes")
@@ -78,9 +79,9 @@ print('[batchSize = ' + str(opt['batchSize']) + ']')
 while epoch < opt['maxepoch']:
     print('\27[31m\27[4m\nEpoch # ', epoch, '\27[0m')
     print('==> Training:')
-    trainConf, model, loss = Train.train(data.trainData, opt['dataClasses'], epoch)
+    trainConf, model, loss = Train.train(opt['trainData'], opt['Classes'], epoch)
     print('==> Testing:')
-    Test.test(data.testData, opt['dataClasses'], epoch, trainConf, model, loss)
+    Test.test(opt['testData'], opt['Classes'], epoch, trainConf, model, loss)
     trainConf = None
 
     epoch = epoch + 1
