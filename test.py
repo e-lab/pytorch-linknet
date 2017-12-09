@@ -80,7 +80,7 @@ class Test(object):
                     self.yt.data[idx] = testData.labels[i]
                     idx = idx + 1
                 y = model.forward(self.x)
-                #err = loss.forward(y, self.yt)
+                err = loss.forward(y, self.yt)
                 print("y size: ", y.size(), "yt size: ", self.yt.size())
                 y = y.transpose(1, 3).transpose(1, 2)
                 y = y.view(int(y.numel() / y.size(3)), len(classes))
@@ -100,7 +100,7 @@ class Test(object):
 
             print( '==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
             totalerr = totalerr / (testData.size* len(self.opt['dataconClasses']) / self.opt['batchSize'])
-            # print '\nTrain Error: %1.4f', trainError
+            print '\nTrain Error: %1.4f', trainError
             print ('Test  Error: %1.4f', totalerr)
 
             filename = os.path.join(self.opt['save'], 'lastConfusionMatrix.txt')
