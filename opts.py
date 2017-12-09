@@ -33,7 +33,7 @@ def parse():
     # model related
 
     arg('--model',  type=str, default='models/model.py', help='(default models/model.py')
-    arg('--pretrained',  type=str, default='media/HDD1/Models/pretrained/resnet-18.t7',
+    arg('--pretrained',  type=str, default='/media/HDD1/Models/pretrained/resnet-18.t7',
         help='pretrained encoder for which you want to train your decoder')
 
     # Saving/Displaying Information

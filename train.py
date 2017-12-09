@@ -1,9 +1,10 @@
 import torch
+import numpy as np
 from torch import FloatTensor as Tensor
 from ConfusionMatrix import ConfusionMatrix
 import time as Time
 from torch import optim
-
+from torch.autograd import Variable
 
 class Train(object):
 
@@ -13,7 +14,7 @@ class Train(object):
         self.loss = model.loss
         self.model = model.model
         print ('==> Flattening model parameters')
-        self.w, self.dE_dw = model.getParameters()
+        self.w = self.model.state_dict(prefix='weight')
 
         self.confusion = None
         if self.opt['conClasses']:
@@ -23,11 +24,10 @@ class Train(object):
         else:
             self.testConf = ConfusionMatrix(len(opt['Classes']), opt['Classes'])
         self.learningRateSteps = {0.5e-4, 0.1e-4, 0.5e-5, 0.1e-6}
-        self.optimState = {"learningRate": self.opt['learningRate'], "momentum": self.opt['momentum'], "learningRateDecay":
-            self.opt['learningRateDecay']}
+        self.optimState = {"learningRate": self.opt['learningRate'], "momentum": self.opt['momentum'], "learningRateDecay": self.opt['learningRateDecay']}
 
-        self.yt = Tensor(opt['batchSize'], opt['imHeight'], opt['imHeight'])
-        self.x = Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imHeight'])
+        self.yt = Variable(Tensor(opt['batchSize'], opt['imHeight'], opt['imWidth']))
+        self.x = Variable(Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imWidth']))
 
     def train(self, trainData, classes, epoch):
         if epoch % self.opt['lrDecayEvery'] == 0:
@@ -35,13 +35,12 @@ class Train(object):
         time = Time.time()
         err = 0
         totalerr = 0
-
-        shuffle = torch.randperm(trainData.size())
+        shuffle = torch.randperm(trainData.size)
         self.model.train()
         #bar = Bar("Processing", max=trainData.size)
-        for i in range(0, trainData.size(), self.opt['batchSize']):
+        for i in range(0, trainData.size, self.opt['batchSize']):
 
-            if (i + self.opt['batchSize'] - 1) > trainData.size():
+            if (i + self.opt['batchSize'] - 1) > trainData.size:
                 break
 
             idx = 1
@@ -50,7 +49,7 @@ class Train(object):
                 self.yt[idx] = trainData.labels[shuffle[i]]
                 idx = idx + 1
 
-        _, errt = optim.RMSprop(self.eval_E, self.w, self.optimState)
+        #optim.RMSprop(self.w, lr=self.optimState['learningRate'], momentum = self.optimState['momentum'], weight_decay=self.optimState['learningRateDecay'])
 
         # errt = optim.Adam(self.eval_E, w)
         predictions = None
@@ -58,22 +57,23 @@ class Train(object):
         if self.opt['saveTrainConf']:
             # -- update confusion
             self.model.eval()
-            y = self.model.forward(self.x).transpose(2, 4).transpose(2, 3)
-            y = y.reshape(y.numel() / y.size(4),  len(classes)).sub(1, -1, 2, len(self.opt['dataClasses']))
-            _, predictions = y.max(dim=2)
+            y = self.model.forward(self.x).transpose(1, 3).transpose(1, 2)
+            y = np.array(y.data).reshape(y.data.numel() / y.data.size(3),  len(classes))
+            """ _, predictions = np.max(y)
             predictions = predictions.view(-1)
             k = self.yt.view(-1)
             if self.opt['conClasses']:
                 k = k - 1
         self.confusion.add(predictions, k)  # changed from batchAdd to add, double check that the substitution works
-        self.model.train()
+            """
+            self.model.train()
 
         totalerr = totalerr + err
 
         time = Time.time() - time
-        time = time / trainData.size()
+        time = time / trainData.size
         print ('==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
-        totalerr = totalerr / (trainData.size() * len(self.opt['conClasses']) / self.opt['batchSize'])
+        totalerr = totalerr / (trainData.size * len(self.opt['conClasses']) / self.opt['batchSize'])
         print ('\nTrain Error: %1.4f', totalerr)
         trainError = totalerr
         return self.confusion, self.model, self.loss

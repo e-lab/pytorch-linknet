@@ -30,9 +30,14 @@ if opt['dataset'] == 'cv':
     print ("data is loadCamVid")
 elif opt['dataset'] == 'cs':
     import data.loadCityscapes as DataLoader
-    data = DataLoader.CityScapeDataLoader.main(opt)
-    opt['conClasses'] = data.conClasses, opt['Classes'] = data.classes, opt['histClasses'] = data.histClasses
-    opt['trainData'] = data.trainData, opt['testData'] = data.val_Data
+    data = DataLoader.CityScapeDataLoader(opt)
+    data.data_loader()
+    opt['conClasses'] = data.conClasses
+    opt['Classes'] = data.classes
+    opt['histClasses'] = data.histClasses
+    print(type(data.train_data))
+    opt['trainData'] = data.train_data
+    opt['testData'] = data.val_data
     print ("data is loadCityscapes")
 else:
     print ("data loader could not be found")
@@ -42,16 +47,28 @@ else:
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 filename = os.path.join(curr_dir, opt['save'], 'opt.txt')
 fp = open(filename, 'w')
-for arg in vars(opt):
-    fp.write(str(arg) + ":" + str(getattr(opt, arg)) + "\n")
+for arg in opt:
+    fp.write(str(arg) + ":" + str(opt[arg]) + "\n")
 fp.close()
 
 #################################################################
 epoch = 1
 
 folder, filename = opt['model'].split('/')
-model_raw = __import__(folder.filename)
-model_init = model_raw()
+print("folder and filename:", folder, filename, "\n")
+old_path = os.getcwd()
+#os.chdir(folder)
+
+#model_raw = __import__(filename+".py") 
+#model_raw = __import__('model.py'
+if filename == 'model.py':
+    import  models.model as model
+elif filename == 'nobypass.py':
+    import models.nobypass as model
+else:
+    import models.model_res_dec as model
+
+model_init = model.Model(opt)
 Train = train.Train(model_init, opt)
 Test = test.Test(opt)
 
@@ -62,9 +79,9 @@ print('[batchSize = ' + str(opt['batchSize']) + ']')
 while epoch < opt['maxepoch']:
     print('\27[31m\27[4m\nEpoch # ', epoch, '\27[0m')
     print('==> Training:')
-    trainConf, model, loss = Train.train(data.trainData, opt['dataClasses'], epoch)
+    trainConf, model, loss = Train.train(opt['trainData'], opt['Classes'], epoch)
     print('==> Testing:')
-    Test.test(data.testData, opt['dataClasses'], epoch, trainConf, model, loss)
+    Test.test(opt['testData'], opt['Classes'], epoch, trainConf, model, loss)
     trainConf = None
 
     epoch = epoch + 1
