@@ -105,7 +105,7 @@ class Model(object):
             classWeights = torch.pow(torch.log(1.02 + self.histClasses / self.histClasses.max()), -1)
             #classWeights[0] = 0
 
-            self.loss = torch.nn.CrossEntropyLoss(weight=classWeights)
+            self.loss = torch.nn.CrossEntropyLoss("""weight=classWeights""")
 
             #model.cuda()
             #self.loss.cuda()

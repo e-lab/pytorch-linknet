@@ -28,8 +28,8 @@ class Test(object):
         self.metricFlag = [0, 0, 0, 0]
 
         # batch stuff
-        self.yt = Variable(Tensor(opt['batchSize'], opt['imHeight'], opt['imWidth']))
-        self.x = Variable(Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imWidth']))
+        self.yt = Variable(torch.LongTensor(opt['batchSize'], opt['imHeight'], opt['imWidth']))
+        self.x = Variable(Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imWidth']) )
 
     def saveConfMatrix(self, filename, teConfMat, trConfMat):
         file = open(filename, 'w')
@@ -76,15 +76,15 @@ class Test(object):
 
                 idx = 0 
                 for i in range(0, 8):
-                    self.x[idx].data =(testData.data[i])
-                    self.yt[idx].data = (testData.labels[i])
+                    self.x.data[idx] =(testData.data[i])
+                    self.yt.data[idx] = testData.labels[i]
                     idx = idx + 1
-
                 y = model.forward(self.x)
-
-                err = loss.forward(y, self.yt)
-                y = y.transpose(2, 4).transpose(2, 3)
-                y = y.reshape(y.numel() / y.size(4), len(classes)).sub(1, -1, 2, len(self.opt['dataClasses']))
+                #err = loss.forward(y, self.yt)
+                print("y size: ", y.size(), "yt size: ", self.yt.size())
+                y = y.transpose(1, 3).transpose(1, 2)
+                y = y.view(int(y.numel() / y.size(3)), len(classes))
+                print(y.size())
                 predictions = y.max(2)
                 predictions = predictions.view(-1)
                 k = self.yt.view(-1)

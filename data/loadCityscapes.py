@@ -25,7 +25,7 @@ from torchvision import transforms
 class DataModel:
     def __init__(self, size, args):
         self.data = torch.FloatTensor(size, args['channels'], args['imHeight'], args['imWidth'])
-        self.labels = torch.FloatTensor(size, args['imHeight'], args['imWidth'])
+        self.labels = torch.LongTensor(size, args['imHeight'], args['imWidth'])
         self.prev_error = 1e10  # a really huge value
         self.size = size
 
