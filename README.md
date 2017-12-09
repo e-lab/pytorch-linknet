@@ -38,19 +38,19 @@ LinkNet performance on both of the above dataset:
 * [models]                : all the model architectures are defined here
 * [train.py](train.py) : loading of models and error calculation
 * [test.py](test.py)  : calculate testing error and save confusion matrices
-
+* [ConfusionMatrix.py](ConfusionMatrix.py) : implements a confusion matrix
 There are three model files present in `models` folder:
 
-* [model.lua](models/model.lua) : our LinkNet architecture
-* [model-res-dec.lua](models/model-res-dec.lua) : LinkNet with residual connection in each of the decoder blocks.
+* [model.py](models/model.py) : our LinkNet architecture
+* [model-res-dec.py](models/model-res-dec.py) : LinkNet with residual connection in each of the decoder blocks.
   This slightly improves the result but we had to use `bilinear interpolation` in residual connection because of which we were not able to run our trained model on TX1.
-* [nobypass.lua](models/nobypass.lua) : this architecture does not use any link between encoder and decoder.
+* [nobypass.py](models/nobypass.py) : this architecture does not use any link between encoder and decoder.
   You can use this model to verify if connecting encoder and decoder modules actually improve performance.
 
 A sample command to train network is given below:
 
 ```
-th main.py --datapath /Datasets/Cityscapes/ --cachepath /dataCache/cityscapes/ --dataset cs --model models/model.lua --save /Models/cityscapes/ --saveTrainConf --saveAll --plot
+th main.py --datapath /media/HDD1/Datasets/ --cachepath /dataCache/cityscapes/ --dataset cs --model models/model.lua --save /Trained_models/cityscapes/ --saveTrainConf True --saveAll True --plot True
 ```
 
 ### License
