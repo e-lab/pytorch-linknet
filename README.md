@@ -50,7 +50,7 @@ There are three model files present in `models` folder:
 A sample command to train network is given below:
 
 ```
-th main.py --datapath /media/HDD1/Datasets/ --cachepath /dataCache/cityscapes/ --dataset cs --model models/model.lua --save /Trained_models/cityscapes/ --saveTrainConf True --saveAll True --plot True
+th main.py --datapath /media/HDD1/Datasets/ --cachepath /dataCache/cityscapes/ --dataset cs --model models/model.py --save /Trained_models/cityscapes/ --saveTrainConf True --saveAll True --plot True
 ```
 
 ### License
