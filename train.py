@@ -1,100 +1,47 @@
 import torch
-import numpy as np
-from torch import FloatTensor as Tensor
-from ConfusionMatrix import ConfusionMatrix
-import time as Time
-from torch import optim
+from tqdm import trange
 from torch.autograd import Variable
 
-class Train(object):
+class Train():
+    def __init__(self, model, data_loader, optimizer, criterion, lr, wd):
+        super(Train, self).__init__()
+        self.model = model
+        self.data_loader = data_loader
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.lr = lr
+        self.wd = wd
 
-    def __init__(self, model, opt):
-        self.opt = opt
-        self.t = model
-        self.loss = model.loss
-        self.model = model.model
-        print ('==> Flattening model parameters')
-        self.w = self.model.state_dict(prefix='weight')
 
-        self.confusion = None
-        if self.opt['conClasses']:
-            print('\27[31mClass \'Unlabeled\' is ignored in confusion matrix\27[0m')
-            self.testConf = ConfusionMatrix(len(opt['conClasses']), opt['conClasses'])
-
-        else:
-            self.testConf = ConfusionMatrix(len(opt['Classes']), opt['Classes'])
-        self.learningRateSteps = {0.5e-4, 0.1e-4, 0.5e-5, 0.1e-6}
-        self.optimState = {"learningRate": self.opt['learningRate'], "momentum": self.opt['momentum'], "learningRateDecay": self.opt['learningRateDecay']}
-
-        self.yt = Variable(Tensor(opt['batchSize'], opt['imHeight'], opt['imWidth']))
-        self.x = Variable(Tensor(opt['batchSize'], opt['channels'], opt['imHeight'], opt['imWidth']))
-
-    def train(self, trainData, classes, epoch):
-        if epoch % self.opt['lrDecayEvery'] == 0:
-            self.optimState['learningRate'] = self.optimState['learningRate'] * self.opt['learningRateDecay']
-        time = Time.time()
-        err = 0
-        totalerr = 0
-        shuffle = torch.randperm(trainData.size)
+    def forward(self):
         self.model.train()
-        #bar = Bar("Processing", max=trainData.size)
-        for i in range(0, trainData.size, self.opt['batchSize']):
+        # TODO adjust learning rate
 
-            if (i + self.opt['batchSize'] - 1) > trainData.size:
-                break
+        total_loss = 0
+        pbar = trange(len(self.data_loader.dataset), desc='Training ')
+        for batch_idx, (x, yt) in enumerate(self.data_loader):
+            x = x.cuda(async=True)
+            yt = yt.cuda(async=True)
+            input_var = Variable(x, requires_grad=True)
+            target_var = Variable(yt)
 
-            idx = 1
-            for x in range(i, i+self.opt['batchSize']-1):
-                self.x[idx] = trainData.data[shuffle[i]]
-                self.yt[idx] = trainData.labels[shuffle[i]]
-                idx = idx + 1
+            # compute output
+            y = self.model(input_var)
+            loss = self.criterion(y, target_var)
 
-        #optim.RMSprop(self.w, lr=self.optimState['learningRate'], momentum = self.optimState['momentum'], weight_decay=self.optimState['learningRateDecay'])
+            # measure accuracy and record loss
+            total_loss += loss.data[0]
 
-        # errt = optim.Adam(self.eval_E, w)
-        predictions = None
-        k = None
-        if self.opt['saveTrainConf']:
-            # -- update confusion
-            self.model.eval()
-            y = self.model.forward(self.x).transpose(1, 3).transpose(1, 2)
-            y = np.array(y.data).reshape(y.data.numel() / y.data.size(3),  len(classes))
-            """ _, predictions = np.max(y)
-            predictions = predictions.view(-1)
-            k = self.yt.view(-1)
-            if self.opt['conClasses']:
-                k = k - 1
-        self.confusion.add(predictions, k)  # changed from batchAdd to add, double check that the substitution works
-            """
-            self.model.train()
+            # compute gradient and do SGD step
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-        totalerr = totalerr + err
+            if batch_idx % 10 == 0:
+                if (batch_idx*len(x) + 10) <= len(self.data_loader.dataset):
+                    pbar.update(10)
+                else:
+                    pbar.update(len(self.data_loader.dataset) - batch_idx*len(x))
 
-        time = Time.time() - time
-        time = time / trainData.size
-        print ('==> Time to test 1 sample = %2.2f, %s', (time * 1000), 'ms')
-        totalerr = totalerr / (trainData.size * len(self.opt['conClasses']) / self.opt['batchSize'])
-        print ('\nTrain Error: %1.4f', totalerr)
-        trainError = totalerr
-        return self.confusion, self.model, self.loss
-
-    def eval_E(self):
-        # -- reset gradients
-        self.model.zero_grad()
-
-
-        # -- evaluate function for complete mini batch
-        y = self.model.forward(torch.autograd.Variable(self.x))
-        # -- estimate df / dW
-        err = self.loss.forward(y, torch.autograd.Variable(self.yt)) # - - updateOutput
-        dE_dy = self.loss.backward(y, torch.autograd.Variable(self.yt)) # - - updateGradInput
-
-        torch.autograd.backward(torch.autograd.Variable(self.x), torch.autograd.Variable(dE_dy))  # i think this works,
-                                                                                                    # test it
-        #self.model.backward(self.x, dE_dy)
-
-        # -- Don't add this to err, so models with different WD
-        #  -- settings can be easily compared.optim functions
-        # -- care only about the gradient anyway(adam / rmsprop)
-        # -- dE_dw:add(opt.weightDecay, w) return f and df / dX
-        return err, dE_dy
+        pbar.close()
+        return total_loss
