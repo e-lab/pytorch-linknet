@@ -64,6 +64,28 @@ def main():
     torch.set_default_tensor_type('torch.FloatTensor')
 
     #################################################################
+    # Acquire dataset loader object
+    # Normalization factor based on ResNet stats
+    prep_data = transforms.Compose([
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+    if args.dataset == 'cs':
+        import data.segmented_data as segmented_data
+        print ("{}Cityscapes dataset in use{}!!!".format(CP_G, CP_C))
+    else:
+        print ("{}Invalid data-loader{}".format(CP_R, CP_C))
+
+    # Training data loader
+    data_obj_train = segmented_data.SegmentedData(root=args.datapath, mode='train', transform=prep_data)
+    data_loader_train = DataLoader(data_obj_train, batch_size=args.bs, shuffle=True, num_workers=args.workers)
+    data_len_train = len(data_obj_train)
+
+    # Testing data loader
+    data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='test', transform=prep_data)
+    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=True, num_workers=args.workers)
+    data_len_test = len(data_obj_test)
+
+    #################################################################
     # Load model
     print('{}{:=<80}{}'.format(CP_R, '', CP_C))
     print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
@@ -92,9 +114,8 @@ def main():
             # Save model definiton script
             call(["cp", "./models/linknet.py", args.save])
 
-            from models.linknet import ModelDef
-
-        model = ModelDef()
+            from models.linknet import LinkNet
+            model = LinkNet(len(data_obj_train.class_name))
 
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                 momentum=args.momentum, weight_decay=args.wd)
@@ -102,28 +123,6 @@ def main():
     # Criterion
     model.cuda()
     criterion = cross_entropy2d
-
-    #################################################################
-    # Acquire dataset loader object
-    # Normalization factor based on ResNet stats
-    prep_data = transforms.Compose([
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
-    if args.dataset == 'cs':
-        import data.segmentedData as SegmentedData
-        print ("{}Cityscapes dataset in use{}!!!".format(CP_G, CP_C))
-    else:
-        print ("{}Invalid data-loader{}".format(CP_R, CP_C))
-
-    # Training data loader
-    data_obj_train = segmentedData.SegmentedData(root=args.datapath, mode='train', transform=prep_data)
-    data_loader_train = DataLoader(data_obj_train, batch_size=args.bs, shuffle=True, num_workers=args.workers)
-    data_len_train = len(data_obj_train)
-
-    # Testing data loader
-    data_obj_test = segmentedData.SegmentedData(root=args.datapath, mode='test', transform=prep_data)
-    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=True, num_workers=args.workers)
-    data_len_test = len(data_obj_test)
 
     # Save arguements used for training
     args_log = open(args.save + '/args.log', 'w')
