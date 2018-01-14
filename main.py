@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from train import Train
 from test import Test
-import data.segmentedData as segmentedData
+import data.segmented_data as segmented_data
 from opts import get_args # Get all the input arguments
 
 print('\033[0;0f\033[0J')
@@ -25,7 +25,7 @@ args = get_args() # Holds all the input arguments
 def cross_entropy2d(x, target, weight=None, size_average=True):
 # Taken from https://github.com/meetshah1995/pytorch-semseg/blob/master/ptsemseg/loss.py
     n, c, h, w = x.size()
-    log_p = F.log_softmax(x, dim=1)
+    log_p = F.log_softmax(x)
     log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
     log_p = log_p[target.view(n * h * w, 1).repeat(1, c) >= 0]
     log_p = log_p.view(-1, c)
@@ -115,14 +115,15 @@ def main():
             call(["cp", "./models/linknet.py", args.save])
 
             from models.linknet import LinkNet
-            model = LinkNet(len(data_obj_train.class_name))
+            model = LinkNet(len(data_obj_train.class_name()))
 
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                 momentum=args.momentum, weight_decay=args.wd)
 
     # Criterion
+    model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
-    criterion = cross_entropy2d
+    criterion = nn.NLLLoss2d()
 
     # Save arguements used for training
     args_log = open(args.save + '/args.log', 'w')

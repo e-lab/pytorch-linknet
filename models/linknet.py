@@ -101,13 +101,14 @@ class LinkNet(nn.Module):
         self.decoder4 = Decoder(512, 256, 3, 2, 1, 1)
 
         # Classifier
-        self.tp_conv1 = nn.Sequential(nn.ConvTranspose2d(64, 32, 3, 2, 1),
+        self.tp_conv1 = nn.Sequential(nn.ConvTranspose2d(64, 32, 3, 2, 1, 1),
                                       nn.BatchNorm2d(32),
                                       nn.ReLU(inplace=True),)
         self.conv2 = nn.Sequential(nn.Conv2d(32, 32, 3, 1, 1),
                                 nn.BatchNorm2d(32),
                                 nn.ReLU(inplace=True),)
         self.tp_conv2 = nn.ConvTranspose2d(32, n_classes, 2, 2, 0)
+        self.lsm = nn.LogSoftmax()
 
     def forward(self, x):
         # Initial block
@@ -133,5 +134,7 @@ class LinkNet(nn.Module):
         y = self.tp_conv1(d1)
         y = self.conv2(y)
         y = self.tp_conv2(y)
+
+        y = self.lsm(y)
 
         return y
