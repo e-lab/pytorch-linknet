@@ -23,8 +23,7 @@ def get_args():
     arg('--datapath',  type=str, default='/media/HDD1/Datasets', help='dataset location')
     arg('--dataset',  type=str, default='cs', choices=["cs", "cv"],
         help='dataset type: cs(cityscapes)/cv(CamVid)')
-    arg('--imHeight', type=int, default=512, help='image height  (576 cv/512 cs)')
-    arg('--imWidth', type=int, default=1024, help='image width  (576 cv/512 cs)')
+    arg('--img_size', type=int, default=512, help='image height  (576 cv/512 cs)')
 
     # model related
     arg('--model',  type=str, default='linknet', help='linknet')
@@ -32,9 +31,10 @@ def get_args():
         help='pretrained encoder for which you want to train your decoder')
 
     # Saving/Displaying Information
-    arg('--saveTrainConf', type=bool, default=False, help='Save training confusion matrix')
-    arg('--saveAll', type=bool, default=False, help='Save all models and confusion matrices')
-    arg('--resume', type=bool, default=False, help='Resume from previous checkpoint')
+    arg('--visdom', action='store_true', help='Plot using visdom')
+    arg('--saveTrainConf', action='store_true', help='Save training confusion matrix')
+    arg('--saveAll', action='store_true', help='Save all models and confusion matrices')
+    arg('--resume', action='store_true', help='Resume from previous checkpoint')
 
     args = parser.parse_args()
     return args

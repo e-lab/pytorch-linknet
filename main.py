@@ -5,6 +5,7 @@ from subprocess import call
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import torch.nn.functional as F
+from PIL import Image
 
 from train import Train
 from test import Test
@@ -67,8 +68,20 @@ def main():
     # Acquire dataset loader object
     # Normalization factor based on ResNet stats
     prep_data = transforms.Compose([
+            #transforms.RandomCrop(900),
+            transforms.Resize(args.img_size, 0),
+            #transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
+
+    prep_target = transforms.Compose([
+            #transforms.RandomCrop(900),
+            transforms.Resize(args.img_size, 0),
+            #transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            ])
+
     if args.dataset == 'cs':
         import data.segmented_data as segmented_data
         print ("{}Cityscapes dataset in use{}!!!".format(CP_G, CP_C))
@@ -76,12 +89,12 @@ def main():
         print ("{}Invalid data-loader{}".format(CP_R, CP_C))
 
     # Training data loader
-    data_obj_train = segmented_data.SegmentedData(root=args.datapath, mode='train', transform=prep_data)
+    data_obj_train = segmented_data.SegmentedData(root=args.datapath, mode='train', transform=prep_data, target_transform=prep_target)
     data_loader_train = DataLoader(data_obj_train, batch_size=args.bs, shuffle=True, num_workers=args.workers)
     data_len_train = len(data_obj_train)
 
     # Testing data loader
-    data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='test', transform=prep_data)
+    data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='test', transform=prep_data, target_transform=prep_target)
     data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=True, num_workers=args.workers)
     data_len_test = len(data_obj_test)
 
@@ -133,8 +146,8 @@ def main():
     error_log = list()
     prev_error = 1000
 
-    train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd)
-    test = Test(model, data_loader_test, criterion)
+    train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.visdom)
+    test = Test(model, data_loader_test, criterion, args.visdom)
     while epoch <= args.maxepoch:
         train_error = train.forward()
         test_error = test.forward()
@@ -147,7 +160,7 @@ def main():
         # Save weights and model definition
         prev_error = save_model({
             'epoch': epoch,
-            'model_def': ModelDef,
+            'model_def': LinkNet,
             'state_dict': model.state_dict(),
             'optim_state': optimizer.state_dict(),
             }, test_error, prev_error, args.save, args.saveAll)

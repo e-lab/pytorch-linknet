@@ -38,10 +38,10 @@ def make_dataset(root_dir, mode):
     return tensors
 
 
-def default_loader(input_path, target_path):
+def default_loader(input_path, target_path, img_transform, target_transform):
     pil_to_tensor = transforms.ToTensor()
-    input_image = pil_to_tensor(Image.open(input_path))
-    target_image = (pil_to_tensor(Image.open(target_path)) * 255).type(torch.LongTensor).squeeze()
+    input_image = img_transform(Image.open(input_path))
+    target_image = (target_transform(Image.open(target_path)) * 255).type(torch.LongTensor).squeeze()
 
     return input_image, target_image
 
@@ -119,15 +119,15 @@ class SegmentedData(data.Dataset):
         # Get path of input image and ground truth
         input_path, target_path = self.tensors[index]
         # Acquire input image and ground truth
-        input_tensor, target = self.loader(input_path, target_path)
+        input_tensor, target = self.loader(input_path, target_path, self.transform, self.target_transform)
         if self.data_mode == 'small':
             target.apply_(lambda x: self.class_map[x])
 
-        if self.transform is not None:
-            input_tensor = self.transform(input_tensor)
+        #if self.transform is not None:
+        #    input_tensor = self.transform(input_tensor)
 
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        #if self.target_transform is not None:
+        #    target = self.target_transform(target)
 
         #if self.transform is not None:
         #    for i in range(len(input_tensor)):
