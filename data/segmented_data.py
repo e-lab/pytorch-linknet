@@ -1,12 +1,10 @@
 import os
 import os.path
-
-from PIL import Image
-
 import torch
 import torch.utils.data as data
 from torchvision import transforms
 
+from PIL import Image
 
 def find_classes(root_dir):
     classes = ['Unlabeled', 'Road', 'Sidewalk', 'Building', 'Wall', 'Fence',
@@ -39,7 +37,6 @@ def make_dataset(root_dir, mode):
 
 
 def default_loader(input_path, target_path, img_transform, target_transform):
-    pil_to_tensor = transforms.ToTensor()
     input_image = img_transform(Image.open(input_path))
     target_image = (target_transform(Image.open(target_path)) * 255).type(torch.LongTensor).squeeze()
 

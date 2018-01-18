@@ -1,16 +1,19 @@
 import os
 import torch
 import torch.nn as nn
-from subprocess import call
-from torch.utils.data import DataLoader
-from torchvision import transforms
 import torch.nn.functional as F
-from PIL import Image
+import numpy as np
 
-from train import Train
-from test import Test
-import data.segmented_data as segmented_data
+from PIL import Image
+from subprocess import call
+from torchvision import transforms
+from torch.utils.data import DataLoader
+
 from opts import get_args # Get all the input arguments
+from test import Test
+from train import Train
+from metrics import runningScore
+import data.segmented_data as segmented_data
 
 print('\033[0;0f\033[0J')
 # Color Palette
@@ -40,8 +43,7 @@ def cross_entropy2d(x, target, weight=None, size_average=True):
     return loss
 
 
-def save_model(checkpoint, test_error, prev_error, save_dir, save_all):
-
+def save_model(checkpoint, test_error, prev_error, score, conf_matrix, class_iou, save_dir, save_all):
     if test_error <= prev_error:
         prev_error = test_error
 
@@ -49,8 +51,23 @@ def save_model(checkpoint, test_error, prev_error, save_dir, save_all):
         print('{}{:-<50}{}\n'.format(CP_R, '', CP_C))
         torch.save(checkpoint, save_dir + '/model_best.pth')
 
+        np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='     ')
+
+        conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
+        conf_file.write('{:-<80}\n\n'.format(''))
+        for key, value in score.items():
+            conf_file.write(key + ' : ' + str(value) + '\n')
+
+        conf_file.write('{:-<80}\n\n'.format(''))
+        conf_file.write(str(class_iou))
+        conf_file.close()
+
     if save_all:
         torch.save(checkpoint, save_dir + '/all/model_' + str(checkpoint['epoch']) + '.pth')
+
+        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + 'txt', 'w')
+        conf_file.write(str(score))
+        conf_file.close()
 
     torch.save(checkpoint, save_dir + '/model_resume.pth')
 
@@ -98,6 +115,7 @@ def main():
     data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=True, num_workers=args.workers)
     data_len_test = len(data_obj_test)
 
+    n_classes = len(data_obj_train.class_name())
     #################################################################
     # Load model
     print('{}{:=<80}{}'.format(CP_R, '', CP_C))
@@ -128,7 +146,7 @@ def main():
             call(["cp", "./models/linknet.py", args.save])
 
             from models.linknet import LinkNet
-            model = LinkNet(len(data_obj_train.class_name()))
+            model = LinkNet(n_classes)
 
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                 momentum=args.momentum, weight_decay=args.wd)
@@ -140,22 +158,28 @@ def main():
 
     # Save arguements used for training
     args_log = open(args.save + '/args.log', 'w')
-    args_log.write(str(args))
+    for k in args.__dict__:
+        args_log.write(k + ' : ' + str(args.__dict__[k]) + '\n')
     args_log.close()
 
     error_log = list()
-    prev_error = 1000
+    prev_iou = 10000
+
+    # Setup Metrics
+    metrics = runningScore(n_classes)
 
     train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.visdom)
-    test = Test(model, data_loader_test, criterion, args.visdom)
+    test = Test(model, data_loader_test, criterion, metrics, args.visdom)
     while epoch <= args.maxepoch:
         train_error = train.forward()
-        test_error = test.forward()
+        test_error, test_score, conf_matrix, class_iou = test.forward()
+
+        mean_iou = test_score['Mean IoU']
         print('{}{:-<80}{}'.format(CP_R, '', CP_C))
         print('{}Epoch #: {}{:03}'.format(CP_B, CP_C, epoch))
-        print('{}Training Error: {}{:.6f} | {}Testing Error: {}{:.6f}'.format(
-            CP_B, CP_C, train_error, CP_B, CP_C, test_error))
-        error_log.append((train_error, test_error))
+        print('{}Training Error: {}{:.6f} | {}Testing Error: {}{:.6f} |{}Mean IoU: {}{:.6f}'.format(
+            CP_B, CP_C, train_error, CP_B, CP_C, test_error, CP_G, CP_C, mean_iou))
+        error_log.append((train_error, test_error, mean_iou))
 
         # Save weights and model definition
         prev_error = save_model({
@@ -163,13 +187,15 @@ def main():
             'model_def': LinkNet,
             'state_dict': model.state_dict(),
             'optim_state': optimizer.state_dict(),
-            }, test_error, prev_error, args.save, args.saveAll)
+            }, mean_iou, prev_iou, test_score, conf_matrix, class_iou, args.save, args.saveAll)
+
+        epoch += 1
 
     logger = open(args.save + '/error.log', 'w')
     logger.write('{:10} {:10}'.format('Train Error', 'Test Error'))
     logger.write('\n{:-<20}'.format(''))
     for total_error in error_log:
-        logger.write('\n{:.6f} {:.6f}'.format(total_error[0], total_error[1]))
+        logger.write('\n{:.6f} {:.6f} {:.6f}'.format(total_error[0], total_error[1], total_error[2]))
 
     logger.close()
 
