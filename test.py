@@ -12,22 +12,17 @@ class Test(object):
         self.metrics = metrics
         self.vis = None
 
-    def forward(self):
-        self.model.eval()
-        # TODO adjust learning rate
+        if vis:
+            self.vis = visdom.Visdom()
 
-        total_loss = 0
-        pbar = trange(len(self.data_loader.dataset), desc='Validation ')
-
-        if self.visdom:
-            vis = visdom.Visdom()
-
-            loss_window = vis.line(X=torch.zeros((1,)).cpu(),
+            self.loss_window = self.vis.line(X=torch.zeros((1,)).cpu(),
                     Y=torch.zeros((1)).cpu(),
                     opts=dict(xlabel='minibatches',
                     ylabel='Loss',
                     title='Validation Loss',
                     legend=['Loss']))
+
+        self.iterations = 0
 
     def forward(self):
         self.model.eval()
@@ -54,11 +49,11 @@ class Test(object):
             gt = yt.cpu().numpy()
             self.metrics.update(gt, pred)
 
-            if self.visdom:
-                vis.line(
-                        X=torch.ones((1, 1)).cpu() * batch_idx,
+            if self.vis:
+                self.vis.line(
+                        X=torch.ones((1, 1)).cpu() * self.iterations,
                         Y=torch.Tensor([loss.data[0]]).unsqueeze(0).cpu(),
-                        win=loss_window,
+                        win=self.loss_window,
                         update='append')
 
             if batch_idx % 10 == 0:
@@ -66,6 +61,8 @@ class Test(object):
                     pbar.update(10 * len(x))
                 else:
                     pbar.update(len(self.data_loader.dataset) - batch_idx*len(x))
+
+            self.iteartions += 1
 
         score, conf_matrix, class_iou = self.metrics.get_scores()
         self.metrics.reset()

@@ -4,7 +4,7 @@ from tqdm import trange
 from torch.autograd import Variable
 
 class Train():
-    def __init__(self, model, data_loader, optimizer, criterion, lr, wd, visdom):
+    def __init__(self, model, data_loader, optimizer, criterion, lr, wd, vis):
         super(Train, self).__init__()
         self.model = model
         self.data_loader = data_loader
@@ -12,7 +12,19 @@ class Train():
         self.criterion = criterion
         self.lr = lr
         self.wd = wd
-        self.visdom = visdom
+        self.vis = None
+
+        if vis:
+            self.vis = visdom.Visdom()
+
+            self.loss_window = self.vis.line(X=torch.zeros((1,)).cpu(),
+                    Y=torch.zeros((1)).cpu(),
+                    opts=dict(xlabel='minibatches',
+                    ylabel='Loss',
+                    title='Training Loss',
+                    legend=['Loss']))
+
+        self.iterations = 0
 
     def forward(self):
         self.model.train()
@@ -21,31 +33,21 @@ class Train():
         total_loss = 0
         pbar = trange(len(self.data_loader.dataset), desc='Training ')
 
-        if self.visdom:
-            vis = visdom.Visdom()
-
-            loss_window = vis.line(X=torch.zeros((1,)).cpu(),
-                    Y=torch.zeros((1)).cpu(),
-                    opts=dict(xlabel='minibatches',
-                    ylabel='Loss',
-                    title='Training Loss',
-                    legend=['Loss']))
-
         for batch_idx, (x, yt) in enumerate(self.data_loader):
             x = x.cuda(async=True)
             yt = yt.cuda(async=True)
-            input_var = Variable(x, requires_grad=True)
+            input_var = Variable(x)
             target_var = Variable(yt)
 
             # compute output
             y = self.model(input_var)
             loss = self.criterion(y, target_var)
 
-            if self.visdom:
-                vis.line(
-                        X=torch.ones((1, 1)).cpu() * batch_idx,
+            if self.vis:
+                self.vis.line(
+                        X=torch.ones((1, 1)).cpu() * self.iterations,
                         Y=torch.Tensor([loss.data[0]]).unsqueeze(0).cpu(),
-                        win=loss_window,
+                        win=self.loss_window,
                         update='append')
 
             # measure accuracy and record loss
@@ -61,6 +63,8 @@ class Train():
                     pbar.update(10 * len(x))
                 else:
                     pbar.update(len(self.data_loader.dataset) - batch_idx*len(x))
+
+            self.iterations += 1
 
         pbar.close()
 
