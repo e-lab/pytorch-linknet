@@ -1,13 +1,15 @@
 # LinkNet
 
-This repository contains our Torch7 implementation of the network developed by us at e-Lab.
+This repository contains our PyTorch implementation of the network developed by us at e-Lab.
 You can go to our [blogpost](https://codeac29.github.io/projects/linknet/) or read the article [LinkNet: Exploiting Encoder Representations for Efficient Semantic Segmentation](https://arxiv.org/abs/1707.03718) for further details.
+
+**The training script has issues and it is still a work in progress.**
 
 ## Dependencies:
 
-+ [Torch7](https://github.com/torch/distro) : you can follow our installation step specified [here](https://github.com/e-lab/tutorials/blob/master/Setup-an-Ubuntu-GPU-box.md)
-+ [VideoDecoder](https://github.com/e-lab/torch-toolbox/tree/master/Video-decoder) : video decoder for torch that utilizes avcodec library.
-+ [Profiler](https://github.com/e-lab/Torch7-profiling) : use it to calculate # of paramaters, operations and forward pass time of any network trained using torch.
++ Python 3.4 or greater
++ [PyTorch](https://pytorch.org)
++ [OpenCV](https://opencv.org/)
 
 Currently the network can be trained on two datasets:
 
