@@ -29,7 +29,7 @@ args = get_args() # Holds all the input arguments
 def cross_entropy2d(x, target, weight=None, size_average=True):
 # Taken from https://github.com/meetshah1995/pytorch-semseg/blob/master/ptsemseg/loss.py
     n, c, h, w = x.size()
-    log_p = F.log_softmax(x)
+    log_p = F.log_softmax(x, dim=1)
     log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
     log_p = log_p[target.view(n * h * w, 1).repeat(1, c) >= 0]
     log_p = log_p.view(-1, c)
@@ -89,7 +89,7 @@ def main():
             transforms.Resize(args.img_size, 0),
             #transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
 
     prep_target = transforms.Compose([
@@ -112,7 +112,7 @@ def main():
 
     # Testing data loader
     data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='test', transform=prep_data, target_transform=prep_target)
-    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=True, num_workers=args.workers)
+    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=False, num_workers=args.workers)
     data_len_test = len(data_obj_test)
 
     n_classes = len(data_obj_train.class_name())
@@ -154,7 +154,8 @@ def main():
     # Criterion
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
-    criterion = nn.NLLLoss2d()
+    criterion = nn.NLLLoss()
+    #criterion = cross_entropy2d
 
     # Save arguements used for training
     args_log = open(args.save + '/args.log', 'w')
@@ -168,8 +169,8 @@ def main():
     # Setup Metrics
     metrics = runningScore(n_classes)
 
-    train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.visdom)
-    test = Test(model, data_loader_test, criterion, metrics, args.visdom)
+    train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.bs, args.visdom)
+    test = Test(model, data_loader_test, criterion, metrics, args.bs, args.visdom)
     while epoch <= args.maxepoch:
         train_error = train.forward()
         test_error, test_score, conf_matrix, class_iou = test.forward()

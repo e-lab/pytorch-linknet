@@ -108,7 +108,7 @@ class LinkNet(nn.Module):
                                 nn.BatchNorm2d(32),
                                 nn.ReLU(inplace=True),)
         self.tp_conv2 = nn.ConvTranspose2d(32, n_classes, 2, 2, 0)
-        self.lsm = nn.LogSoftmax()
+        self.lsm = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
         # Initial block

@@ -3,8 +3,8 @@ import visdom
 from tqdm import trange
 from torch.autograd import Variable
 
-class Train():
-    def __init__(self, model, data_loader, optimizer, criterion, lr, wd, vis):
+class Train(object):
+    def __init__(self, model, data_loader, optimizer, criterion, lr, wd, batch_size, vis):
         super(Train, self).__init__()
         self.model = model
         self.data_loader = data_loader
@@ -12,6 +12,7 @@ class Train():
         self.criterion = criterion
         self.lr = lr
         self.wd = wd
+        self.bs = batch_size
         self.vis = None
 
         if vis:
@@ -43,13 +44,6 @@ class Train():
             y = self.model(input_var)
             loss = self.criterion(y, target_var)
 
-            if self.vis:
-                self.vis.line(
-                        X=torch.ones((1, 1)).cpu() * self.iterations,
-                        Y=torch.Tensor([loss.data[0]]).unsqueeze(0).cpu(),
-                        win=self.loss_window,
-                        update='append')
-
             # measure accuracy and record loss
             total_loss += loss.data[0]
 
@@ -59,13 +53,22 @@ class Train():
             self.optimizer.step()
 
             if batch_idx % 10 == 0:
-                if (batch_idx*len(x) + 10*len(x)) <= len(self.data_loader.dataset):
+                # Update tqdm bar
+                if (batch_idx*self.bs + 10*len(x)) <= len(self.data_loader.dataset):
                     pbar.update(10 * len(x))
                 else:
-                    pbar.update(len(self.data_loader.dataset) - batch_idx*len(x))
+                    pbar.update(len(self.data_loader.dataset) - int(batch_idx*self.bs))
+
+            # Display plot using visdom
+            if self.vis:
+                self.vis.line(
+                        X=torch.ones((1)).cpu() * self.iterations,
+                        Y=loss.data.cpu(),
+                        win=self.loss_window,
+                        update='append')
 
             self.iterations += 1
 
         pbar.close()
 
-        return total_loss/len(self.data_loader.dataset)
+        return total_loss*self.bs/len(self.data_loader.dataset)
