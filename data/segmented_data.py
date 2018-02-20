@@ -1,5 +1,6 @@
 import os
 import os.path
+import cv2
 import torch
 import torch.utils.data as data
 from torchvision import transforms
@@ -37,10 +38,13 @@ def make_dataset(root_dir, mode):
 
 
 def default_loader(input_path, target_path, img_transform, target_transform):
-    input_image = img_transform(Image.open(input_path))
-    target_image = (target_transform(Image.open(target_path)) * 255).type(torch.LongTensor).squeeze()
+    raw_input_image = cv2.imread(input_path)
+    input_image = cv2.resize(raw_input_image, None, fx=0.5, fy=0.5)
+    input_image = torch.from_numpy(cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB).transpose(2, 0, 1))/255
+    raw_target_image = cv2.imread(target_path, 0)
+    target_image = torch.from_numpy(cv2.resize(raw_target_image, None, fx=0.5, fy=0.5))
 
-    return input_image, target_image
+    return input_image.float(), target_image.type(torch.LongTensor)
 
 
 def remap_class():
