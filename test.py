@@ -46,9 +46,9 @@ class Test(object):
             total_loss += loss.data[0]
 
             # calculate mIoU
-            pred = y.data.max(1)[1].cpu().numpy()
+            pred = y.data.cpu().numpy()
             gt = yt.cpu().numpy()
-            self.metrics.update(gt, pred)
+            self.metrics.update_matrix(gt, pred)
 
             if batch_idx % 10 == 0:
                 # Update tqdm bar
@@ -67,8 +67,8 @@ class Test(object):
 
             self.iterations += 1
 
-        score, conf_matrix, class_iou = self.metrics.get_scores()
+        accuracy, avg_accuracy, IoU, mIoU, conf_mat = self.metrics.scores()
         self.metrics.reset()
         pbar.close()
 
-        return (total_loss*self.bs/len(self.data_loader.dataset), score, conf_matrix, class_iou)
+        return (total_loss*self.bs/len(self.data_loader.dataset), accuracy, avg_accuracy, IoU, mIoU, conf_mat)

@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from PIL import Image
 from subprocess import call
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -12,7 +11,7 @@ from torch.utils.data import DataLoader
 from opts import get_args # Get all the input arguments
 from test import Test
 from train import Train
-from metrics import runningScore
+from confusion_matrix import ConfusionMatrix
 import data.segmented_data as segmented_data
 
 print('\033[0;0f\033[0J')
@@ -43,7 +42,7 @@ def cross_entropy2d(x, target, weight=None, size_average=True):
     return loss
 
 
-def save_model(checkpoint, test_error, prev_error, score, conf_matrix, class_iou, save_dir, save_all):
+def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, class_iou, save_dir, save_all):
     if test_error <= prev_error:
         prev_error = test_error
 
@@ -51,22 +50,30 @@ def save_model(checkpoint, test_error, prev_error, score, conf_matrix, class_iou
         print('{}{:-<50}{}\n'.format(CP_R, '', CP_C))
         torch.save(checkpoint, save_dir + '/model_best.pth')
 
-        np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='     ')
+        np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
 
         conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
         conf_file.write('{:-<80}\n\n'.format(''))
-        for key, value in score.items():
-            conf_file.write(key + ' : ' + str(value) + '\n')
-
-        conf_file.write('{:-<80}\n\n'.format(''))
         conf_file.write(str(class_iou))
+
+        conf_file.write('\n{:-<80}\n\n'.format(''))
+        conf_file.write('mIoU : ' + str(test_error) + '\n')
+        conf_file.write('Average Accuracy : ' + str(avg_accuracy))
         conf_file.close()
 
     if save_all:
         torch.save(checkpoint, save_dir + '/all/model_' + str(checkpoint['epoch']) + '.pth')
 
-        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + 'txt', 'w')
-        conf_file.write(str(score))
+        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + 'txt', 'a')
+        np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
+
+        conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
+        conf_file.write('{:-<80}\n\n'.format(''))
+        conf_file.write(str(class_iou))
+
+        conf_file.write('\n{:-<80}\n\n'.format(''))
+        conf_file.write('mIoU : ' + str(test_error) + '\n')
+        conf_file.write('Average Accuracy : ' + str(avg_accuracy))
         conf_file.close()
 
     torch.save(checkpoint, save_dir + '/model_resume.pth')
@@ -106,16 +113,21 @@ def main():
         print ("{}Invalid data-loader{}".format(CP_R, CP_C))
 
     # Training data loader
-    data_obj_train = segmented_data.SegmentedData(root=args.datapath, mode='train', transform=prep_data, target_transform=prep_target)
-    data_loader_train = DataLoader(data_obj_train, batch_size=args.bs, shuffle=True, num_workers=args.workers)
+    data_obj_train = segmented_data.SegmentedData(root=args.datapath, mode='train',
+            transform=prep_data, target_transform=prep_target)
+    data_loader_train = DataLoader(data_obj_train, batch_size=args.bs, shuffle=True,
+            num_workers=args.workers, pin_memory=True)
     data_len_train = len(data_obj_train)
 
     # Testing data loader
-    data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='test', transform=prep_data, target_transform=prep_target)
-    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=False, num_workers=args.workers)
+    data_obj_test = segmented_data.SegmentedData(root=args.datapath, mode='val',
+            transform=prep_data, target_transform=prep_target)
+    data_loader_test = DataLoader(data_obj_test, batch_size=args.bs, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
     data_len_test = len(data_obj_test)
 
-    n_classes = len(data_obj_train.class_name())
+    class_names = data_obj_train.class_name()
+    n_classes = len(class_names)
     #################################################################
     # Load model
     print('{}{:=<80}{}'.format(CP_R, '', CP_C))
@@ -167,20 +179,20 @@ def main():
     prev_iou = 10000
 
     # Setup Metrics
-    metrics = runningScore(n_classes)
+    metrics = ConfusionMatrix(n_classes, class_names)
 
     train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.bs, args.visdom)
     test = Test(model, data_loader_test, criterion, metrics, args.bs, args.visdom)
     while epoch <= args.maxepoch:
+        train_error = 0
         train_error = train.forward()
-        test_error, test_score, conf_matrix, class_iou = test.forward()
+        test_error, accuracy, avg_accuracy, iou, miou, conf_mat= test.forward()
 
-        mean_iou = test_score['Mean IoU']
         print('{}{:-<80}{}'.format(CP_R, '', CP_C))
         print('{}Epoch #: {}{:03}'.format(CP_B, CP_C, epoch))
         print('{}Training Error: {}{:.6f} | {}Testing Error: {}{:.6f} |{}Mean IoU: {}{:.6f}'.format(
-            CP_B, CP_C, train_error, CP_B, CP_C, test_error, CP_G, CP_C, mean_iou))
-        error_log.append((train_error, test_error, mean_iou))
+            CP_B, CP_C, train_error, CP_B, CP_C, test_error, CP_G, CP_C, miou))
+        error_log.append((train_error, test_error, miou))
 
         # Save weights and model definition
         prev_error = save_model({
@@ -188,7 +200,7 @@ def main():
             'model_def': LinkNet,
             'state_dict': model.state_dict(),
             'optim_state': optimizer.state_dict(),
-            }, mean_iou, prev_iou, test_score, conf_matrix, class_iou, args.save, args.saveAll)
+            }, conf_mat, miou, prev_iou, avg_accuracy, iou, args.save, args.saveAll)
 
         epoch += 1
 
