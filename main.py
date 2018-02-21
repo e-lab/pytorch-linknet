@@ -163,10 +163,25 @@ def main():
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                 momentum=args.momentum, weight_decay=args.wd)
 
+    from torchvision.models import resnet18
+    pretrained_model = resnet18(pretrained=True)
+    for i, j in zip(model.modules(), pretrained_model.modules()):
+        if not list(i.children()):
+            if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
+                i.weight.data = j.weight.data
     # Criterion
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
-    criterion = nn.NLLLoss()
+
+    # Get class weights based on training data
+    hist = np.zeros((n_classes), dtype=np.float)
+    for batch_idx, (x, yt) in enumerate(data_loader_train):
+        h, bins = np.histogram(yt.numpy(), list(range(n_classes + 1)))
+        hist += h
+
+    hist = hist/(max(hist))     # Normalize histogram
+    criterion_weight = 1/np.log(1.02 + hist)
+    criterion = nn.NLLLoss(Variable(torch.from_numpy(criterion_weight).float().cuda()))
     #criterion = cross_entropy2d
 
     # Save arguements used for training
