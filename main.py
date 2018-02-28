@@ -1,12 +1,13 @@
 import os
+import numpy as np
+from subprocess import call
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-
-from subprocess import call
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torch.autograd import Variable
 
 from opts import get_args # Get all the input arguments
 from test import Test
@@ -43,7 +44,7 @@ def cross_entropy2d(x, target, weight=None, size_average=True):
 
 
 def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, class_iou, save_dir, save_all):
-    if test_error <= prev_error:
+    if test_error >= prev_error:
         prev_error = test_error
 
         print(CP_G + 'Saving model!!!' + CP_C)
@@ -100,9 +101,7 @@ def main():
             ])
 
     prep_target = transforms.Compose([
-            #transforms.RandomCrop(900),
             transforms.Resize(args.img_size, 0),
-            #transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             ])
 
@@ -181,6 +180,7 @@ def main():
 
     hist = hist/(max(hist))     # Normalize histogram
     criterion_weight = 1/np.log(1.02 + hist)
+    criterion_weight[0] = 0
     criterion = nn.NLLLoss(Variable(torch.from_numpy(criterion_weight).float().cuda()))
     #criterion = cross_entropy2d
 
@@ -191,7 +191,7 @@ def main():
     args_log.close()
 
     error_log = list()
-    prev_iou = 10000
+    prev_iou = 0.0001
 
     # Setup Metrics
     metrics = ConfusionMatrix(n_classes, class_names)
@@ -210,7 +210,7 @@ def main():
         error_log.append((train_error, test_error, miou))
 
         # Save weights and model definition
-        prev_error = save_model({
+        prev_iou = save_model({
             'epoch': epoch,
             'model_def': LinkNet,
             'state_dict': model.state_dict(),
