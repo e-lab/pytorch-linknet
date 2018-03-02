@@ -44,7 +44,7 @@ def cross_entropy2d(x, target, weight=None, size_average=True):
     return loss
 
 
-def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, class_iou, save_dir, save_all):
+def save_model(checkpoint, class_names, conf_matrix, test_error, prev_error, avg_accuracy, class_iou, save_dir, save_all):
     if test_error >= prev_error:
         prev_error = test_error
 
@@ -54,8 +54,24 @@ def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, cl
         np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
 
         conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
-        conf_file.write('{:-<80}\n\n'.format(''))
-        conf_file.write(str(class_iou))
+        conf_file.write('{:-<80}\n'.format(''))
+        first = True
+        for value in class_iou:
+            if first:
+                conf_file.write("{:>10}".format("{:2.2f}".format(100*value)))
+                first = False
+            else:
+                conf_file.write("{:>14}".format("{:2.2f}".format(100*value)))
+
+        conf_file.write("\n")
+
+        first = True
+        for value in class_names:
+            if first:
+                conf_file.write("{:>10}".format(value))
+                first = False
+            else:
+                conf_file.write("{:>14}".format(value))
 
         conf_file.write('\n{:-<80}\n\n'.format(''))
         conf_file.write('mIoU : ' + str(test_error) + '\n')
@@ -65,14 +81,30 @@ def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, cl
     if save_all:
         torch.save(checkpoint, save_dir + '/all/model_' + str(checkpoint['epoch']) + '.pth')
 
-        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + '.txt', 'a')
-        np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
+        conf_file_path = save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + '.txt'
+        np.savetxt(conf_file_path, conf_matrix, fmt='%10s', delimiter='    ')
 
-        conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
-        conf_file.write('{:-<80}\n\n'.format(''))
-        conf_file.write(str(class_iou))
+        conf_file = open(conf_file_path, 'a')
+        conf_file.write('{:-<80}\n'.format(''))
+        first = True
+        for value in class_iou:
+            if first:
+                conf_file.write("{:>10}".format("{:2.2f}".format(100*value)))
+                first = False
+            else:
+                conf_file.write("{:>14}".format("{:2.2f}".format(100*value)))
 
-        conf_file.write('\n{:-<80}\n\n'.format(''))
+        conf_file.write("\n")
+
+        first = True
+        for value in class_names:
+            if first:
+                conf_file.write("{:>10}".format(value))
+                first = False
+            else:
+                conf_file.write("{:>14}".format(value))
+
+        conf_file.write('\n{:-<80}\n'.format(''))
         conf_file.write('mIoU : ' + str(test_error) + '\n')
         conf_file.write('Average Accuracy : ' + str(avg_accuracy))
         conf_file.close()
@@ -132,6 +164,15 @@ def main():
     epoch = 0
     prev_iou = 0.0001
     # Load fresh model definition
+    print('{}{:=<80}{}'.format(CP_R, '', CP_C))
+    print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
+    if not os.path.exists(str(args.save)):
+        os.mkdir(str(args.save))
+
+    if args.saveAll:
+        if not os.path.exists(str(args.save)+'/all'):
+            os.mkdir(str(args.save)+'/all')
+
     if args.model == 'linknet':
         # Save model definiton script
         call(["cp", "./models/linknet.py", args.save])
@@ -149,8 +190,8 @@ def main():
 
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-            momentum=args.momentum, weight_decay=args.wd)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr)#,
+            #momentum=args.momentum, weight_decay=args.wd)
 
     if args.resume:
         # Load previous model state
@@ -164,15 +205,7 @@ def main():
 
     # Criterion
     cudnn.benchmark = True
-    print('{}{:=<80}{}'.format(CP_R, '', CP_C))
     print("Model initialized for training...")
-    print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
-    if not os.path.exists(str(args.save)):
-        os.mkdir(str(args.save))
-
-    if args.saveAll:
-        if not os.path.exists(str(args.save)+'/all'):
-            os.mkdir(str(args.save)+'/all')
 
     hist_path = os.path.join(args.save, 'hist')
     if os.path.isfile(hist_path + '.npy'):
@@ -229,7 +262,7 @@ def main():
             'state_dict': model.state_dict(),
             'optim_state': optimizer.state_dict(),
             'min_error': prev_iou
-            }, conf_mat, miou, prev_iou, avg_accuracy, iou, args.save, args.saveAll)
+            }, class_names, conf_mat, miou, prev_iou, avg_accuracy, iou, args.save, args.saveAll)
 
         epoch += 1
 
