@@ -1,6 +1,7 @@
 import cv2
 import torch
 import numpy as np
+import transforms
 
 # Define color scheme
 color_map = np.array([
@@ -27,10 +28,11 @@ color_map = np.array([
 ], dtype=np.uint8)
 
 # Load model
-m = torch.load('/media/HDD2/Models/abhi/1/model_resume.pth')
+m = torch.load('/media/HDD2/Models/abhi/2/model_best.pth')
 model = torch.nn.DataParallel(m['model_def'](20))
 model.load_state_dict(m['state_dict'])
 model.cuda()
+model.eval()
 
 root_dir = '/media/HDD1/Datasets/cityscapes/leftImg8bit_demoVideo/leftImg8bit/demoVideo/stuttgart_00/'
 idx = 1
@@ -38,8 +40,14 @@ while idx <= 599:
     # Load image, resize and convert into a 'batchified' cuda tensor
     filename = '{}stuttgart_00_000000_{:06d}_leftImg8bit.png'.format(root_dir, idx)
     x = cv2.imread(filename)
-    x = cv2.resize(x, None, fx=0.5, fy=0.5)
-    input_image = torch.from_numpy(cv2.cvtColor(x, cv2.COLOR_BGR2RGB).transpose(2, 0, 1))/255
+    prep_data = transforms.Compose([
+        #transforms.Crop((512, 512)),
+        transforms.Resize(0.5),
+        transforms.ToTensor(),
+        transforms.Normalize([[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]])
+        ])
+    input_image = prep_data(x)
+    #input_image = torch.from_numpy(cv2.cvtColor(x, cv2.COLOR_BGR2RGB).transpose(2, 0, 1))/255
     input_image = input_image.unsqueeze(0).float().cuda()
 
     # Get neural network output
@@ -50,17 +58,17 @@ while idx <= 599:
     # Calculate prediction and colorized segemented output
     prediction = np.argmax(pred, axis=0)
     num_classes = 20
-    pred_map = np.array(x) * 0
+    pred_map = np.zeros((prediction.shape[0], prediction.shape[1], 3), dtype=np.uint8) * 0
     for i in range(num_classes):
         mask = (prediction == i).astype(np.uint8)             # 1s at detection
         mask3D = np.repeat(mask[:, :, np.newaxis], 3, axis=2) # HxW -> HxWx3
         pred_map += mask3D * color_map[i]
 
-    x_RGB = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)
-    pred_map_RGB = cv2.cvtColor(pred_map, cv2.COLOR_BGR2RGB)
-    overlay = cv2.addWeighted(x_RGB, 0.5, pred_map_RGB, 0.5, 0)
-    cv2.imshow('Original Image', x_RGB)
-    cv2.imshow('Segmented Output', pred_map_RGB)
+    x_rescaled = cv2.resize(x, None, fx=0.5, fy=0.5)
+    pred_map_BGR = cv2.cvtColor(pred_map, cv2.COLOR_RGB2BGR)
+    overlay = cv2.addWeighted(x_rescaled, 0.5, pred_map_BGR, 0.5, 0)
+    cv2.imshow('Original Image', x_rescaled)
+    cv2.imshow('Segmented Output', pred_map_BGR)
     cv2.imshow('Overlayed Image', overlay)
 
     idx += 1
