@@ -5,7 +5,6 @@ from subprocess import call
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
@@ -14,6 +13,7 @@ from test import Test
 from train import Train
 from confusion_matrix import ConfusionMatrix
 import data.segmented_data as segmented_data
+import transforms
 
 print('\033[0;0f\033[0J')
 # Color Palette
@@ -48,7 +48,6 @@ def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, cl
         prev_error = test_error
 
         print(CP_G + 'Saving model!!!' + CP_C)
-        print('{}{:-<50}{}\n'.format(CP_R, '', CP_C))
         torch.save(checkpoint, save_dir + '/model_best.pth')
 
         np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
@@ -65,7 +64,7 @@ def save_model(checkpoint, conf_matrix, test_error, prev_error, avg_accuracy, cl
     if save_all:
         torch.save(checkpoint, save_dir + '/all/model_' + str(checkpoint['epoch']) + '.pth')
 
-        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + 'txt', 'a')
+        conf_file = open(save_dir + '/all/confusion_matrix_' + str(checkpoint['epoch']) + '.txt', 'a')
         np.savetxt(save_dir + '/confusion_matrix_best.txt', conf_matrix, fmt='%10s', delimiter='    ')
 
         conf_file = open(save_dir + '/confusion_matrix_best.txt', 'a')
@@ -93,17 +92,17 @@ def main():
     # Acquire dataset loader object
     # Normalization factor based on ResNet stats
     prep_data = transforms.Compose([
-            #transforms.RandomCrop(900),
-            transforms.Resize(args.img_size, 0),
-            #transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
+        #transforms.Crop((512, 512)),
+        transforms.Resize(0.5),
+        transforms.ToTensor(),
+        transforms.Normalize([[0.406, 0.456, 0.485], [0.225, 0.224, 0.229]])
+        ])
 
     prep_target = transforms.Compose([
-            transforms.Resize(args.img_size, 0),
-            transforms.ToTensor(),
-            ])
+        #transforms.Crop((512, 512)),
+        transforms.Resize(0.5),
+        transforms.ToTensor(basic=True),
+        ])
 
     if args.dataset == 'cs':
         import data.segmented_data as segmented_data
@@ -129,15 +128,6 @@ def main():
     n_classes = len(class_names)
     #################################################################
     # Load model
-    print('{}{:=<80}{}'.format(CP_R, '', CP_C))
-    print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
-    if not os.path.exists(str(args.save)):
-        os.mkdir(str(args.save))
-
-    if args.saveAll:
-        if not os.path.exists(str(args.save)+'/all'):
-            os.mkdir(str(args.save)+'/all')
-
     epoch = 0
     if args.resume:
         # Load previous model state
@@ -157,20 +147,31 @@ def main():
             call(["cp", "./models/linknet.py", args.save])
 
             from models.linknet import LinkNet
+            from torchvision.models import resnet18
             model = LinkNet(n_classes)
+
+            # Copy weights of resnet18 into encoder
+            pretrained_model = resnet18(pretrained=True)
+            for i, j in zip(model.modules(), pretrained_model.modules()):
+                if not list(i.children()):
+                    if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
+                        i.weight.data = j.weight.data
 
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                 momentum=args.momentum, weight_decay=args.wd)
 
-    from torchvision.models import resnet18
-    pretrained_model = resnet18(pretrained=True)
-    for i, j in zip(model.modules(), pretrained_model.modules()):
-        if not list(i.children()):
-            if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
-                i.weight.data = j.weight.data
     # Criterion
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
+    print('{}{:=<80}{}'.format(CP_R, '', CP_C))
+    print("Model initialized for training...")
+    print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
+    if not os.path.exists(str(args.save)):
+        os.mkdir(str(args.save))
+
+    if args.saveAll:
+        if not os.path.exists(str(args.save)+'/all'):
+            os.mkdir(str(args.save)+'/all')
 
     # Get class weights based on training data
     hist = np.zeros((n_classes), dtype=np.float)
@@ -182,6 +183,7 @@ def main():
     criterion_weight = 1/np.log(1.02 + hist)
     criterion_weight[0] = 0
     criterion = nn.NLLLoss(Variable(torch.from_numpy(criterion_weight).float().cuda()))
+    print('{}Using weighted criterion{}!!!'.format(CP_Y, CP_C))
     #criterion = cross_entropy2d
 
     # Save arguements used for training
@@ -190,7 +192,6 @@ def main():
         args_log.write(k + ' : ' + str(args.__dict__[k]) + '\n')
     args_log.close()
 
-    error_log = list()
     prev_iou = 0.0001
 
     # Setup Metrics
@@ -198,16 +199,21 @@ def main():
 
     train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.bs, args.visdom)
     test = Test(model, data_loader_test, criterion, metrics, args.bs, args.visdom)
+
+    # Save error values in log file
+    logger = open(args.save + '/error.log', 'w')
+    logger.write('{:10} {:10}'.format('Train Error', 'Test Error'))
+    logger.write('\n{:-<20}'.format(''))
     while epoch <= args.maxepoch:
         train_error = 0
+        print('{}{:-<80}{}'.format(CP_R, '', CP_C))
+        print('{}Epoch #: {}{:03}'.format(CP_B, CP_C, epoch))
         train_error = train.forward()
         test_error, accuracy, avg_accuracy, iou, miou, conf_mat= test.forward()
 
-        print('{}{:-<80}{}'.format(CP_R, '', CP_C))
-        print('{}Epoch #: {}{:03}'.format(CP_B, CP_C, epoch))
+        logger.write('\n{:.6f} {:.6f} {:.6f}'.format(train_error, test_error, miou))
         print('{}Training Error: {}{:.6f} | {}Testing Error: {}{:.6f} |{}Mean IoU: {}{:.6f}'.format(
             CP_B, CP_C, train_error, CP_B, CP_C, test_error, CP_G, CP_C, miou))
-        error_log.append((train_error, test_error, miou))
 
         # Save weights and model definition
         prev_iou = save_model({
@@ -218,12 +224,6 @@ def main():
             }, conf_mat, miou, prev_iou, avg_accuracy, iou, args.save, args.saveAll)
 
         epoch += 1
-
-    logger = open(args.save + '/error.log', 'w')
-    logger.write('{:10} {:10}'.format('Train Error', 'Test Error'))
-    logger.write('\n{:-<20}'.format(''))
-    for total_error in error_log:
-        logger.write('\n{:.6f} {:.6f} {:.6f}'.format(total_error[0], total_error[1], total_error[2]))
 
     logger.close()
 

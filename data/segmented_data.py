@@ -3,9 +3,6 @@ import os.path
 import cv2
 import torch
 import torch.utils.data as data
-from torchvision import transforms
-
-from PIL import Image
 
 def find_classes(root_dir):
     classes = ['Unlabeled', 'Road', 'Sidewalk', 'Building', 'Wall', 'Fence',
@@ -39,10 +36,12 @@ def make_dataset(root_dir, mode):
 
 def default_loader(input_path, target_path, img_transform, target_transform):
     raw_input_image = cv2.imread(input_path)
-    input_image = cv2.resize(raw_input_image, None, fx=0.5, fy=0.5)
-    input_image = torch.from_numpy(cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB).transpose(2, 0, 1))/255
+    # Get torch tensor
+    input_image = img_transform(raw_input_image)
+
     raw_target_image = cv2.imread(target_path, 0)
-    target_image = torch.from_numpy(cv2.resize(raw_target_image, None, fx=0.5, fy=0.5))
+    # Get torch tensor
+    target_image = target_transform(raw_target_image)
 
     return input_image.float(), target_image.type(torch.LongTensor)
 
