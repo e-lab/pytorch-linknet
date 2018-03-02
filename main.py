@@ -5,6 +5,7 @@ from subprocess import call
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
@@ -129,40 +130,40 @@ def main():
     #################################################################
     # Load model
     epoch = 0
-    if args.resume:
-        # Load previous model state
-        checkpoint = torch.load(args.save + '/model_resume.pt')
-        epoch = checkpoint['epoch']
-        model = checkpoint['model_def']
-        model.load_state_dict(checkpoint['state_dict'])
+    prev_iou = 0.0001
+    # Load fresh model definition
+    if args.model == 'linknet':
+        # Save model definiton script
+        call(["cp", "./models/linknet.py", args.save])
 
-        optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                momentum=args.momentum, weight_decay=args.wd)
-        optimizer.load_stat_dict(checkpoint['optim_state'])
-        print('{}Loaded model from previous checkpoint epoch # {}()'.format(CP_G, CP_C, epoch))
-    else:
-        # Load fresh model definition
-        if args.model == 'linknet':
-            # Save model definiton script
-            call(["cp", "./models/linknet.py", args.save])
+        from models.linknet import LinkNet
+        from torchvision.models import resnet18
+        model = LinkNet(n_classes)
 
-            from models.linknet import LinkNet
-            from torchvision.models import resnet18
-            model = LinkNet(n_classes)
+        # Copy weights of resnet18 into encoder
+        pretrained_model = resnet18(pretrained=True)
+        for i, j in zip(model.modules(), pretrained_model.modules()):
+            if not list(i.children()):
+                if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
+                    i.weight.data = j.weight.data
 
-            # Copy weights of resnet18 into encoder
-            pretrained_model = resnet18(pretrained=True)
-            for i, j in zip(model.modules(), pretrained_model.modules()):
-                if not list(i.children()):
-                    if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
-                        i.weight.data = j.weight.data
-
-        optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                momentum=args.momentum, weight_decay=args.wd)
-
-    # Criterion
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+            momentum=args.momentum, weight_decay=args.wd)
+
+    if args.resume:
+        # Load previous model state
+        checkpoint = torch.load(args.save + '/model_resume.pth')
+        epoch = checkpoint['epoch']
+        model.load_state_dict(checkpoint['state_dict'])
+
+        optimizer.load_state_dict(checkpoint['optim_state'])
+        prev_iou = checkpoint['min_error']
+        print('{}Loaded model from previous checkpoint epoch # {}({})'.format(CP_G, CP_C, epoch))
+
+    # Criterion
+    cudnn.benchmark = True
     print('{}{:=<80}{}'.format(CP_R, '', CP_C))
     print("Model initialized for training...")
     print('{}Models will be saved in: {}{}'.format(CP_Y, CP_C, str(args.save)))
@@ -173,13 +174,21 @@ def main():
         if not os.path.exists(str(args.save)+'/all'):
             os.mkdir(str(args.save)+'/all')
 
-    # Get class weights based on training data
-    hist = np.zeros((n_classes), dtype=np.float)
-    for batch_idx, (x, yt) in enumerate(data_loader_train):
-        h, bins = np.histogram(yt.numpy(), list(range(n_classes + 1)))
-        hist += h
+    hist_path = os.path.join(args.save, 'hist')
+    if os.path.isfile(hist_path + '.npy'):
+        hist = np.load(hist_path + '.npy')
+        print('{}Loaded cached dataset stats{}!!!'.format(CP_Y, CP_C))
+    else:
+        # Get class weights based on training data
+        hist = np.zeros((n_classes), dtype=np.float)
+        for batch_idx, (x, yt) in enumerate(data_loader_train):
+            h, bins = np.histogram(yt.numpy(), list(range(n_classes + 1)))
+            hist += h
 
-    hist = hist/(max(hist))     # Normalize histogram
+        hist = hist/(max(hist))     # Normalize histogram
+        print('{}Saving dataset stats{}...'.format(CP_Y, CP_C))
+        np.save(hist_path, hist)
+
     criterion_weight = 1/np.log(1.02 + hist)
     criterion_weight[0] = 0
     criterion = nn.NLLLoss(Variable(torch.from_numpy(criterion_weight).float().cuda()))
@@ -191,8 +200,6 @@ def main():
     for k in args.__dict__:
         args_log.write(k + ' : ' + str(args.__dict__[k]) + '\n')
     args_log.close()
-
-    prev_iou = 0.0001
 
     # Setup Metrics
     metrics = ConfusionMatrix(n_classes, class_names)
@@ -218,9 +225,10 @@ def main():
         # Save weights and model definition
         prev_iou = save_model({
             'epoch': epoch,
-            'model_def': LinkNet,
+            'model_def': model,
             'state_dict': model.state_dict(),
             'optim_state': optimizer.state_dict(),
+            'min_error': prev_iou
             }, conf_mat, miou, prev_iou, avg_accuracy, iou, args.save, args.saveAll)
 
         epoch += 1
