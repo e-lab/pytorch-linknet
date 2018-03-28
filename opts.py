@@ -15,7 +15,6 @@ def get_args():
     arg('--workers', type=int, default=8, help='# of cpu threads for data-loader')
     arg('--maxepoch', type=int, default=300, help='maximum number of training epochs')
     arg('--seed', type=int, default=0, help='seed value for random number generator')
-    arg('--plot', type=bool, default=False, help='plot training/testing error')
     arg('--nGPU', type=int, default=4, help='number of GPUs you want to train on')
     arg('--save', type=str, default='media', help='save trained model here')
 
@@ -27,12 +26,9 @@ def get_args():
 
     # model related
     arg('--model',  type=str, default='linknet', help='linknet')
-    arg('--pretrained',  type=str, default='/media/HDD1/Models/pretrained/resnet-18.t7',
-        help='pretrained encoder for which you want to train your decoder')
 
     # Saving/Displaying Information
     arg('--visdom', action='store_true', help='Plot using visdom')
-    arg('--saveTrainConf', action='store_true', help='Save training confusion matrix')
     arg('--saveAll', action='store_true', help='Save all models and confusion matrices')
     arg('--resume', action='store_true', help='Resume from previous checkpoint')
 
