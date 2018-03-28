@@ -30,7 +30,7 @@ class Resize:
             Resize image
         '''
 
-        return cv2.resize(img, None, fx=self.factor, fy=self.factor)
+        return cv2.resize(img, self.factor)
 
 
 class Normalize:

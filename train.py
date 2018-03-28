@@ -45,7 +45,7 @@ class Train(object):
             loss = self.criterion(y, target_var)
 
             # measure accuracy and record loss
-            total_loss += loss.data[0]
+            total_loss += loss.item()
 
             # compute gradient and do SGD step
             self.optimizer.zero_grad()

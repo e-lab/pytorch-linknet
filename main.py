@@ -119,6 +119,7 @@ def main():
     #################################################################
     # Initialization step
     torch.manual_seed(args.seed)
+    cudnn.benchmark = True
     torch.set_default_tensor_type('torch.FloatTensor')
 
     #################################################################
@@ -126,14 +127,14 @@ def main():
     # Normalization factor based on ResNet stats
     prep_data = transforms.Compose([
         #transforms.Crop((512, 512)),
-        transforms.Resize(0.5),
+        transforms.Resize((1024, 2048)),
         transforms.ToTensor(),
         transforms.Normalize([[0.406, 0.456, 0.485], [0.225, 0.224, 0.229]])
         ])
 
     prep_target = transforms.Compose([
         #transforms.Crop((512, 512)),
-        transforms.Resize(0.5),
+        transforms.Resize((512, 1024)),
         transforms.ToTensor(basic=True),
         ])
 
@@ -204,7 +205,6 @@ def main():
         print('{}Loaded model from previous checkpoint epoch # {}({})'.format(CP_G, CP_C, epoch))
 
     # Criterion
-    cudnn.benchmark = True
     print("Model initialized for training...")
 
     hist_path = os.path.join(args.save, 'hist')

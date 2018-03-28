@@ -43,7 +43,7 @@ class Test(object):
             loss = self.criterion(y, target_var)
 
             # measure accuracy and record loss
-            total_loss += loss.data[0]
+            total_loss += loss.item()
 
             # calculate mIoU
             pred = y.data.cpu().numpy()
