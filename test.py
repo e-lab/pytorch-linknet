@@ -34,7 +34,7 @@ class Test(object):
 
         for batch_idx, (x, yt) in enumerate(self.data_loader):
             x = x.cuda(async=True)
-            yt = yt.cuda(async=True)
+            yt = yt.cuda(async=True).type(torch.cuda.LongTensor)
             input_var = Variable(x, requires_grad=False)
             target_var = Variable(yt, requires_grad=False)
 
