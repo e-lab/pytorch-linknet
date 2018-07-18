@@ -85,7 +85,7 @@ class LinkNet(nn.Module):
         :param x_n: number of input neurons
         :type x_n: int
         """
-        super(LinkNetv2, self).__init__()
+        super(LinkNet, self).__init__()
 
         base = resnet.resnet18(pretrained=True)
 
@@ -154,7 +154,7 @@ class LinkNetBase(nn.Module):
         :param x_n: number of input neurons
         :type x_n: int
         """
-        super(LinkNet, self).__init__()
+        super(LinkNetBase, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 7, 2, 3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
