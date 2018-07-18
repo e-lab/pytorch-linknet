@@ -5,7 +5,7 @@ from sklearn.metrics import confusion_matrix
 
 
 class ConfusionMatrix:
-    def __init__(self, nclasses, classes):
+    def __init__(self, nclasses, classes, useUnlabeled=False):
         self.mat = np.zeros((nclasses, nclasses), dtype=np.float)
         self.valids = np.zeros((nclasses), dtype=np.float)
         self.IoU = np.zeros((nclasses), dtype=np.float)
@@ -14,6 +14,8 @@ class ConfusionMatrix:
         self.nclasses = nclasses
         self.classes = classes
         self.list_classes = list(range(nclasses))
+        self.useUnlabeled = useUnlabeled
+        self.matStartIdx = 1 if not self.useUnlabeled else 0
 
     def update_matrix(self, target, prediction):
         if not(isinstance(prediction, np.ndarray)) or not(isinstance(target, np.ndarray)):
@@ -57,11 +59,11 @@ class ConfusionMatrix:
         fn = 0
         total = 0   # Total true positives
         N = 0       # Total samples
-        for i in range(self.nclasses):
+        for i in range(self.matStartIdx, self.nclasses):
             N += sum(self.mat[:, i])
             tp = self.mat[i][i]
-            fp = sum(self.mat[:, i]) - tp
-            fn = sum(self.mat[i]) - tp
+            fp = sum(self.mat[self.matStartIdx:, i]) - tp
+            fn = sum(self.mat[i,self.matStartIdx:]) - tp
 
             if (tp+fp) == 0:
                 self.valids[i] = 0
@@ -75,8 +77,8 @@ class ConfusionMatrix:
 
             total += tp
 
-        self.mIoU = sum(self.IoU)/self.nclasses
-        self.accuracy = total/(sum(sum(self.mat)))
+        self.mIoU = sum(self.IoU[self.matStartIdx:])/(self.nclasses - self.matStartIdx)
+        self.accuracy = total/(sum(sum(self.mat[self.matStartIdx:, self.matStartIdx:])))
 
         return self.valids, self.accuracy, self.IoU, self.mIoU, self.mat
 
