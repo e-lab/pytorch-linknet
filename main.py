@@ -127,14 +127,14 @@ def main():
     # Normalization factor based on ResNet stats
     prep_data = transforms.Compose([
         #transforms.Crop((512, 512)),
-        transforms.Resize((1024, 2048)),
+        transforms.Resize((1024, 512)),
         transforms.ToTensor(),
         transforms.Normalize([[0.406, 0.456, 0.485], [0.225, 0.224, 0.229]])
         ])
 
     prep_target = transforms.Compose([
         #transforms.Crop((512, 512)),
-        transforms.Resize((512, 1024)),
+        transforms.Resize((1024, 512)),
         transforms.ToTensor(basic=True),
         ])
 
@@ -182,12 +182,12 @@ def main():
         from torchvision.models import resnet18
         model = LinkNet(n_classes)
 
-        # Copy weights of resnet18 into encoder
-        pretrained_model = resnet18(pretrained=True)
-        for i, j in zip(model.modules(), pretrained_model.modules()):
-            if not list(i.children()):
-                if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
-                    i.weight.data = j.weight.data
+#        # Copy weights of resnet18 into encoder
+#        pretrained_model = resnet18(pretrained=True)
+#        for i, j in zip(model.modules(), pretrained_model.modules()):
+#            if not list(i.children()):
+#                if not isinstance(i, nn.Linear) and len(i.state_dict()) > 0:
+#                    i.weight.data = j.weight.data
 
     model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
     model.cuda()
@@ -235,7 +235,7 @@ def main():
     args_log.close()
 
     # Setup Metrics
-    metrics = ConfusionMatrix(n_classes, class_names)
+    metrics = ConfusionMatrix(n_classes, class_names, useUnlabeled=args.use_unlabeled)
 
     train = Train(model, data_loader_train, optimizer, criterion, args.lr, args.wd, args.bs, args.visdom)
     test = Test(model, data_loader_test, criterion, metrics, args.bs, args.visdom)

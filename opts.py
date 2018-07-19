@@ -23,6 +23,7 @@ def get_args():
     arg('--dataset',  type=str, default='cs', choices=["cs", "cv"],
         help='dataset type: cs(cityscapes)/cv(CamVid)')
     arg('--img_size', type=int, default=512, help='image height  (576 cv/512 cs)')
+    arg('--use_unlabeled', action='store_true', help='use unlabeled class annotation')
 
     # model related
     arg('--model',  type=str, default='linknet', help='linknet')
